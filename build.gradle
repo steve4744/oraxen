@@ -15,6 +15,7 @@ def pluginVersion = "1.118.1"
 ext.jitpackGroup = group + ".oraxen"
 ext.jitpackVersion = 'main-' + pluginVersion
 version = pluginVersion
+archiveName "oraxen-1.11.1.jar"
 
 repositories {
     mavenCentral()
