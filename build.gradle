@@ -71,13 +71,14 @@ processResources {
 }
 
 shadowJar {
-    relocate 'org.yaml.snakeyaml', 'io.th0rgal.oraxen.shaded.snakeyaml'
-    relocate 'org.bstats', 'io.th0rgal.oraxen.shaded.bstats'
-    relocate 'net.kyori', 'io.th0rgal.oraxen.shaded.kyori'
-    relocate 'de.jeff_media.customblockdata', 'io.th0rgal.oraxen.shaded.customblockdata'
-    relocate 'com.github.stefvanschie.inventoryframework', 'io.th0rgal.oraxen.shaded.if'
-    relocate 'com.roxstudio.utils', 'io.th0rgal.oraxen.shaded.curl'
-    relocate 'dev.jorel.commandapi', 'io.th0rgal.oraxen.shaded.commandapi'
+    classifier = null
+    relocate "org.yaml.snakeyaml", "io.th0rgal.oraxen.shaded.snakeyaml"
+    relocate "org.bstats", "io.th0rgal.oraxen.shaded.bstats"
+    relocate "net.kyori", "io.th0rgal.oraxen.shaded.kyori"
+    relocate "de.jeff_media.customblockdata", "io.th0rgal.oraxen.shaded.customblockdata"
+    relocate "com.github.stefvanschie.inventoryframework", "io.th0rgal.oraxen.shaded.if"
+    relocate "com.roxstudio.utils", "io.th0rgal.oraxen.shaded.curl"
+    relocate "dev.jorel.commandapi", "io.th0rgal.oraxen.shaded.commandapi"
     manifest {
         attributes(
                 'Built-By': System.properties['user.name'],
