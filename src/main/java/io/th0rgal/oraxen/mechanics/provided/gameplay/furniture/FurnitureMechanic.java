@@ -180,21 +180,18 @@ public class FurnitureMechanic extends Mechanic {
         }
     }
 
-    public boolean place(Rotation rotation, float yaw, BlockFace facing, Location location, String entityId) {
+    public ItemFrame place(Rotation rotation, float yaw, BlockFace facing, Location location, String entityId) {
         setPlacedItem();
         return place(rotation, yaw, facing, location, entityId, placedItem);
     }
 
-    public boolean place(Rotation rotation, float yaw, BlockFace facing, Location location, String entityId,
-                         ItemStack item) {
-        if (hasBarriers())
-            for (Location sideLocation : getLocations(yaw, location, getBarriers())) {
-                if (!sideLocation.getBlock().getType().isAir())
-                    return false;
-            }
+    public ItemFrame place(Rotation rotation, float yaw, BlockFace facing, Location location, String entityId,
+                           ItemStack item) {
+        if (!this.isEnoughSpace(yaw, location))
+            return null;
 
         setPlacedItem();
-        location.getWorld().spawn(location, ItemFrame.class, (ItemFrame frame) -> {
+        ItemFrame output = location.getWorld().spawn(location, ItemFrame.class, (ItemFrame frame) -> {
             frame.setVisible(false);
             frame.setFixed(false);
             frame.setPersistent(true);
@@ -229,15 +226,11 @@ public class FurnitureMechanic extends Mechanic {
                 data.set(ORIENTATION_KEY, PersistentDataType.FLOAT, yaw);
                 block.setType(Material.BARRIER, false);
                 if (light != -1)
-                    WrappedLightAPI.createBlockLight(sideLocation, light, false);
+                    WrappedLightAPI.createBlockLight(sideLocation, light);
             }
         else if (light != -1)
-            WrappedLightAPI.createBlockLight(location, light, false);
-
-        if (light != -1)
-            WrappedLightAPI.refreshBlockLights(light, location);
-
-        return true;
+            WrappedLightAPI.createBlockLight(location, light);
+        return output;
     }
 
     public boolean removeSolid(World world, BlockLocation rootBlockLocation, float orientation) {
@@ -247,7 +240,7 @@ public class FurnitureMechanic extends Mechanic {
                 rootLocation,
                 getBarriers())) {
             if (light != -1)
-                WrappedLightAPI.removeBlockLight(location, false);
+                WrappedLightAPI.removeBlockLight(location);
             location.getBlock().setType(Material.AIR);
         }
 
@@ -267,14 +260,12 @@ public class FurnitureMechanic extends Mechanic {
                 }
                 frame.remove();
                 if (light != -1)
-                    WrappedLightAPI.removeBlockLight(rootLocation, false);
+                    WrappedLightAPI.removeBlockLight(rootLocation);
                 rootLocation.getBlock().setType(Material.AIR);
                 removed = true;
                 break;
             }
 
-        if (light != -1)
-            WrappedLightAPI.refreshBlockLights(light, rootLocation);
         return removed;
     }
 
@@ -288,8 +279,7 @@ public class FurnitureMechanic extends Mechanic {
         }
         Location location = frame.getLocation().getBlock().getLocation();
         if (light != -1) {
-            WrappedLightAPI.removeBlockLight(location, false);
-            WrappedLightAPI.refreshBlockLights(light, location);
+            WrappedLightAPI.removeBlockLight(location);
         }
         frame.remove();
     }
@@ -299,6 +289,13 @@ public class FurnitureMechanic extends Mechanic {
         for (BlockLocation modifier : relativeCoordinates)
             output.add(modifier.groundRotate(rotation).add(center));
         return output;
+    }
+
+    public boolean isEnoughSpace(float yaw, Location rootLocation) {
+        if (!hasBarriers())
+            return true;
+        return getLocations(yaw, rootLocation, getBarriers()).stream()
+                .allMatch(sideLocation -> sideLocation.getBlock().getType().isAir());
     }
 
     public float getYaw(Rotation rotation) {

@@ -1,9 +1,5 @@
-package io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock;
+package io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketContainer;
 import io.th0rgal.oraxen.compatibilities.provided.lightapi.WrappedLightAPI;
 import io.th0rgal.oraxen.items.OraxenItems;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
@@ -16,7 +12,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.type.NoteBlock;
+import org.bukkit.block.data.type.Tripwire;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -26,36 +22,27 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
-public class NoteBlockMechanicListener implements Listener {
+public class StringBlockMechanicListener implements Listener {
 
     private final MechanicFactory factory;
 
-    public NoteBlockMechanicListener(final NoteBlockMechanicFactory factory) {
+    public StringBlockMechanicListener(final StringBlockMechanicFactory factory) {
         this.factory = factory;
         BreakerSystem.MODIFIERS.add(getHardnessModifier());
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onBlockPhysics(final BlockPhysicsEvent event) {
-        final Block aboveBlock = event.getBlock().getLocation().add(0, 1, 0).getBlock();
-        if (aboveBlock.getType() == Material.NOTE_BLOCK) {
-            updateAndCheck(event.getBlock().getLocation());
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void tripwireEvent(BlockPhysicsEvent event) {
+        if (event.getChangedType() == Material.TRIPWIRE)
             event.setCancelled(true);
-        }
-        if (event.getBlock().getType() == Material.NOTE_BLOCK) {
-            event.setCancelled(true);
-            event.getBlock().getState().update(true, false);
-        }
-
     }
 
-    public void updateAndCheck(final Location loc) {
-        final Block block = loc.add(0, 1, 0).getBlock();
-        if (block.getType() == Material.NOTE_BLOCK)
-            block.getState().update(true, true);
-        final Location nextBlock = block.getLocation().add(0, 1, 0);
-        if (nextBlock.getBlock().getType() == Material.NOTE_BLOCK)
-            updateAndCheck(block.getLocation());
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlacingString(final BlockPlaceEvent event) {
+        if (event.getBlockPlaced().getType() != Material.STRING
+                || OraxenItems.exists(OraxenItems.getIdByItem(event.getItemInHand())))
+            return;
+        event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -63,8 +50,7 @@ public class NoteBlockMechanicListener implements Listener {
         final Block block = event.getClickedBlock();
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK
                 && block != null
-                && block.getType() == Material.NOTE_BLOCK) {
-            final NoteBlock blockData = (NoteBlock) block.getBlockData();
+                && block.getType() == Material.TRIPWIRE) {
             final ItemStack clicked = event.getItem();
             event.setCancelled(true);
             if (clicked == null)
@@ -81,47 +67,35 @@ public class NoteBlockMechanicListener implements Listener {
         }
     }
 
-
-    @EventHandler(priority = EventPriority.NORMAL)
-    public void onNotePlayed(final NotePlayEvent event) {
-        if (event.getInstrument() != Instrument.PIANO)
-            event.setCancelled(true);
-    }
-
-    @SuppressWarnings("deprecation")
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBreakingCustomBlock(final BlockBreakEvent event) {
         final Block block = event.getBlock();
-        if (block.getType() != Material.NOTE_BLOCK || event.isCancelled() || !event.isDropItems())
+        if (block.getType() != Material.TRIPWIRE || event.isCancelled() || !event.isDropItems())
             return;
-        final NoteBlock noteBlok = (NoteBlock) block.getBlockData();
-        final NoteBlockMechanic noteBlockMechanic = NoteBlockMechanicFactory
-                .getBlockMechanic((int) (noteBlok.getInstrument().getType()) * 25
-                        + (int) noteBlok.getNote().getId() + (noteBlok.isPowered() ? 400 : 0) - 26);
-        if (noteBlockMechanic == null)
+        final Tripwire tripwire = (Tripwire) block.getBlockData();
+        final StringBlockMechanic stringBlockMechanic = StringBlockMechanicFactory
+                .getBlockMechanic(StringBlockMechanicFactory.getCode(tripwire));
+        if (stringBlockMechanic == null)
             return;
-        if (noteBlockMechanic.hasBreakSound())
-            block.getWorld().playSound(block.getLocation(), noteBlockMechanic.getBreakSound(), 1.0f, 0.8f);
-        if (noteBlockMechanic.getLight() != -1)
+        if (stringBlockMechanic.hasBreakSound())
+            block.getWorld().playSound(block.getLocation(), stringBlockMechanic.getBreakSound(), 1.0f, 0.8f);
+        if (stringBlockMechanic.getLight() != -1)
             WrappedLightAPI.removeBlockLight(block.getLocation());
-        noteBlockMechanic.getDrop().spawns(block.getLocation(), event.getPlayer().getInventory().getItemInMainHand());
+        stringBlockMechanic.getDrop().spawns(block.getLocation(), event.getPlayer().getInventory().getItemInMainHand());
         event.setDropItems(false);
     }
 
-
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlacingBlock(final BlockPlaceEvent event) {
-        if (event.getBlockPlaced().getType() != Material.NOTE_BLOCK
+        if (event.getBlockPlaced().getType() != Material.TRIPWIRE
                 || OraxenItems.exists(OraxenItems.getIdByItem(event.getItemInHand())))
             return;
 
-        final Block block = event.getBlock();
-        block.setBlockData(Bukkit.createBlockData(Material.NOTE_BLOCK), false);
+        event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPrePlacingCustomBlock(final PlayerInteractEvent event) {
-
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK)
             return;
 
@@ -129,41 +103,37 @@ public class NoteBlockMechanicListener implements Listener {
         final String itemID = OraxenItems.getIdByItem(item);
         if (factory.isNotImplementedIn(itemID))
             return;
-
         final Player player = event.getPlayer();
         final Block placedAgainst = event.getClickedBlock();
 
         // determines the new block data of the block
-        NoteBlockMechanic mechanic = (NoteBlockMechanic) factory.getMechanic(itemID);
+        StringBlockMechanic mechanic = (StringBlockMechanic) factory.getMechanic(itemID);
         final int customVariation = mechanic.getCustomVariation();
 
-        assert placedAgainst != null;
         Block placedBlock = makePlayerPlaceBlock(player, event.getHand(), event.getItem(),
-                placedAgainst, event.getBlockFace(), NoteBlockMechanicFactory.createNoteBlockData(customVariation));
-        if (placedBlock != null) {
-            if (mechanic.hasPlaceSound())
-                placedBlock.getWorld().playSound(placedBlock.getLocation(), mechanic.getPlaceSound(), 1.0f, 0.8f);
-
-            if (mechanic.getLight() != -1)
-                WrappedLightAPI.createBlockLight(placedBlock.getLocation(), mechanic.getLight());
-            event.setCancelled(true);
-        }
+                placedAgainst, event.getBlockFace(),
+                StringBlockMechanicFactory.createTripwireData(customVariation));
+        if (placedBlock == null)
+            return;
+        if (mechanic.hasPlaceSound())
+            placedBlock.getWorld().playSound(placedBlock.getLocation(), mechanic.getPlaceSound(), 1.0f, 0.8f);
+        if (placedBlock != null && mechanic.getLight() != -1)
+            WrappedLightAPI.createBlockLight(placedBlock.getLocation(), mechanic.getLight());
+        event.setCancelled(true);
     }
 
     private HardnessModifier getHardnessModifier() {
         return new HardnessModifier() {
 
             @Override
-            @SuppressWarnings("deprecation")
             public boolean isTriggered(final Player player, final Block block, final ItemStack tool) {
                 if (block.getType() != Material.NOTE_BLOCK)
                     return false;
-                final NoteBlock noteBlok = (NoteBlock) block.getBlockData();
-                final int code = (int) (noteBlok.getInstrument().getType()) * 25
-                        + (int) noteBlok.getNote().getId() + (noteBlok.isPowered() ? 400 : 0) - 26;
-                final NoteBlockMechanic noteBlockMechanic = NoteBlockMechanicFactory
+                final Tripwire tripwire = (Tripwire) block.getBlockData();
+                final int code = StringBlockMechanicFactory.getCode(tripwire);
+                final StringBlockMechanic tripwireMechanic = StringBlockMechanicFactory
                         .getBlockMechanic(code);
-                return noteBlockMechanic != null && noteBlockMechanic.hasHardness;
+                return tripwireMechanic != null && tripwireMechanic.hasHardness;
             }
 
             @Override
@@ -171,19 +141,17 @@ public class NoteBlockMechanicListener implements Listener {
                 block.setType(Material.AIR);
             }
 
-            @SuppressWarnings("deprecation")
             @Override
             public long getPeriod(final Player player, final Block block, final ItemStack tool) {
-                final NoteBlock noteBlok = (NoteBlock) block.getBlockData();
-                final NoteBlockMechanic noteBlockMechanic = NoteBlockMechanicFactory
-                        .getBlockMechanic((int) (noteBlok.getInstrument().getType()) * 25
-                                + (int) noteBlok.getNote().getId() + (noteBlok.isPowered() ? 400 : 0) - 26);
+                final Tripwire tripwire = (Tripwire) block.getBlockData();
+                final StringBlockMechanic tripwireMechanic = StringBlockMechanicFactory
+                        .getBlockMechanic(StringBlockMechanicFactory.getCode(tripwire));
 
-                final long period = noteBlockMechanic.getPeriod();
+                final long period = tripwireMechanic.getPeriod();
                 double modifier = 1;
-                if (noteBlockMechanic.getDrop().canDrop(tool)) {
+                if (tripwireMechanic.getDrop().canDrop(tool)) {
                     modifier *= 0.4;
-                    final int diff = noteBlockMechanic.getDrop().getDiff(tool);
+                    final int diff = tripwireMechanic.getDrop().getDiff(tool);
                     if (diff >= 1)
                         modifier *= Math.pow(0.9, diff);
                 }
@@ -228,13 +196,10 @@ public class NoteBlockMechanicListener implements Listener {
             return null;
         }
 
-        Utils.sendAnimation(player, hand);
-
         if (!player.getGameMode().equals(GameMode.CREATIVE))
             item.setAmount(item.getAmount() - 1);
 
         return target;
     }
-
 
 }
