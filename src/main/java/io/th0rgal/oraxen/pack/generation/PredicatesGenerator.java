@@ -27,13 +27,22 @@ public class PredicatesGenerator {
         json.addProperty("parent", getParent(material));
 
         // textures
-        final JsonObject textures = new JsonObject();
-        textures.addProperty("layer0", getVanillaTextureName(material, false));
-
-        // to support colored leather armors + potions
         final ItemMeta exampleMeta = new ItemStack(material).getItemMeta();
-        if (exampleMeta instanceof LeatherArmorMeta || exampleMeta instanceof PotionMeta)
+        final JsonObject textures = new JsonObject();
+
+        // potions use the overlay as the base layer
+        if (exampleMeta instanceof PotionMeta) {
+            textures.addProperty("layer0", getVanillaTextureName(material, false) + "_overlay");
+        } else
+            textures.addProperty("layer0", getVanillaTextureName(material, false));
+
+        // to support colored leather armor
+        if (exampleMeta instanceof LeatherArmorMeta)
             textures.addProperty("layer1", getVanillaTextureName(material, false) + "_overlay");
+        // to support colored potions
+        if (exampleMeta instanceof PotionMeta) {
+            textures.addProperty("layer1", getVanillaTextureName(material, false));
+        }
 
         json.add("textures", textures);
 
@@ -53,32 +62,36 @@ public class PredicatesGenerator {
                 JsonObject pullingPredicate = new JsonObject();
                 pullingPredicate.addProperty("pulling", 1);
                 /*
-                    parser.parse(pullingPredicate.toString()).getAsJsonObject()
+                    JsonParser.parseString(pullingPredicate.toString()).getAsJsonObject()
                     This is the easiest (but incredibly slow and inefficient) way to clone a JsonObject
                  */
-                overrides.add(getOverride(parser.parse(pullingPredicate.toString()).getAsJsonObject(), "item/bow_pulling_0"));
+                overrides.add(getOverride(JsonParser.parseString(pullingPredicate.toString()).getAsJsonObject(), "item/bow_pulling_0"));
                 pullingPredicate.addProperty("pull", 0.65);
-                overrides.add(getOverride(parser.parse(pullingPredicate.toString()).getAsJsonObject(), "item/bow_pulling_1"));
+                overrides.add(getOverride(JsonParser.parseString(pullingPredicate.toString()).getAsJsonObject(), "item/bow_pulling_1"));
                 pullingPredicate.addProperty("pull", 0.9);
                 overrides.add(getOverride(pullingPredicate, "item/bow_pulling_2"));
-                json.add("display", parser.parse(Settings.BOW_DISPLAY.toString()).getAsJsonObject());
+                json.add("display", JsonParser.parseString(Settings.BOW_DISPLAY.toString()).getAsJsonObject());
                 break;
 
 
             case CROSSBOW:
                 parser = new JsonParser();
+
                 pullingPredicate = new JsonObject();
                 pullingPredicate.addProperty("pulling", 1);
-                /*
-                    parser.parse(pullingPredicate.toString()).getAsJsonObject()
-                    This is the easiest (but incredibly slow and inefficient) way to clone a JsonObject
-                 */
-                overrides.add(getOverride(parser.parse(pullingPredicate.toString()).getAsJsonObject(), "item/crossbow_pulling_0"));
+                overrides.add(getOverride(JsonParser.parseString(pullingPredicate.toString()).getAsJsonObject(), "item/crossbow_pulling_0"));
                 pullingPredicate.addProperty("pull", 0.65);
-                overrides.add(getOverride(parser.parse(pullingPredicate.toString()).getAsJsonObject(), "item/crossbow_pulling_1"));
+                overrides.add(getOverride(JsonParser.parseString(pullingPredicate.toString()).getAsJsonObject(), "item/crossbow_pulling_1"));
                 pullingPredicate.addProperty("pull", 0.9);
                 overrides.add(getOverride(pullingPredicate, "item/crossbow_pulling_2"));
-                json.add("display", parser.parse(Settings.CROSSBOW_DISPLAY.toString()).getAsJsonObject());
+
+                JsonObject chargedPredicate = new JsonObject();
+                chargedPredicate.addProperty("charged", 1);
+                overrides.add(getOverride(JsonParser.parseString(chargedPredicate.toString()).getAsJsonObject(), "item/crossbow_arrow"));
+                chargedPredicate.addProperty("firework", 1);
+                overrides.add(getOverride(JsonParser.parseString(chargedPredicate.toString()).getAsJsonObject(), "item/crossbow_firework"));
+
+                json.add("display", JsonParser.parseString(Settings.CROSSBOW_DISPLAY.toString()).getAsJsonObject());
                 break;
 
             default:
@@ -96,6 +109,21 @@ public class PredicatesGenerator {
                 overrides
                         .add(getOverride(predicate, "custom_model_data", item.getOraxenMeta().getCustomModelData(),
                                 item.getOraxenMeta().getBlockingModelName()));
+            }
+            if (item.getOraxenMeta().hasChargedModel()) {
+                final JsonObject predicate = new JsonObject();
+                predicate.addProperty("charged", 1);
+                overrides
+                        .add(getOverride(predicate, "custom_model_data", item.getOraxenMeta().getCustomModelData(),
+                                item.getOraxenMeta().getChargedModelName()));
+            }
+            if (item.getOraxenMeta().hasFireworkModel()) {
+                final JsonObject predicate = new JsonObject();
+                predicate.addProperty("charged", 1);
+                predicate.addProperty("firework", 1);
+                overrides
+                        .add(getOverride(predicate, "custom_model_data", item.getOraxenMeta().getCustomModelData(),
+                                item.getOraxenMeta().getFireworkModelName()));
             }
             if (item.getOraxenMeta().hasPullingModels()) {
                 final List<String> pullingModels = item.getOraxenMeta().getPullingModels();
