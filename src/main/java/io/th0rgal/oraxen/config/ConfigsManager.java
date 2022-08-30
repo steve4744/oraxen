@@ -16,7 +16,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class ConfigsManager {
 
@@ -31,6 +30,7 @@ public class ConfigsManager {
     private YamlConfiguration language;
     private File itemsFolder;
     private File glyphsFolder;
+    private File schematicsFolder;
 
     public ConfigsManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -54,6 +54,10 @@ public class ConfigsManager {
 
     public YamlConfiguration getSound() {
         return sound != null ? sound : defaultSound;
+    }
+
+    public File getSchematicsFolder() {
+        return schematicsFolder;
     }
 
     private YamlConfiguration extractDefault(String source) {
@@ -93,6 +97,13 @@ public class ConfigsManager {
             new ResourcesManager(plugin).extractConfigsInFolder("glyphs", "yml");
         }
 
+        // check schematicsFolder
+        schematicsFolder = new File(plugin.getDataFolder(), "schematics");
+        if (!schematicsFolder.exists()) {
+            schematicsFolder.mkdirs();
+            new ResourcesManager(plugin).extractConfigsInFolder("schematics", "schem");
+        }
+
         return true; // todo : return false when an error is detected + prints a detailed error
     }
 
@@ -120,7 +131,7 @@ public class ConfigsManager {
         List<File> configs = Arrays
                 .stream(getGlyphsFiles())
                 .filter(file -> file.getName().endsWith(".yml"))
-                .collect(Collectors.toList());
+                .toList();
         Map<String, Integer> codePerGlyph = new HashMap<>();
         for (File file : configs) {
             YamlConfiguration configuration = YamlConfiguration.loadConfiguration(file);
@@ -144,6 +155,7 @@ public class ConfigsManager {
                 Glyph glyph = new Glyph(key, configuration.getConfigurationSection(key), code);
                 if (glyph.isFileChanged())
                     fileChanged = true;
+                glyph.verifyGlyph(output);
                 output.add(glyph);
             }
             if (fileChanged && Settings.AUTOMATICALLY_SET_GLYPH_CODE.toBool())
@@ -167,7 +179,7 @@ public class ConfigsManager {
         List<File> configs = Arrays
                 .stream(getItemsFiles())
                 .filter(file -> file.getName().endsWith(".yml"))
-                .collect(Collectors.toList());
+                .toList();
         for (File file : configs)
             parseMap.put(file, parseItemConfigs(YamlConfiguration.loadConfiguration(file), file));
         return parseMap;
@@ -191,11 +203,9 @@ public class ConfigsManager {
             try {
                 map.put(entry.getKey(), itemParser.buildItem());
             } catch (Exception e) {
-                map
-                        .put(entry.getKey(),
-                                errorItem
-                                        .buildItem(String.valueOf(ChatColor.DARK_RED) + ChatColor.BOLD
-                                                + e.getClass().getSimpleName() + ": " + ChatColor.RED + entry.getKey()));
+                map.put(entry.getKey(),
+                        errorItem.buildItem(String.valueOf(ChatColor.DARK_RED) + ChatColor.BOLD
+                                + e.getClass().getSimpleName() + ": " + ChatColor.RED + entry.getKey()));
                 Logs.logError("ERROR BUILDING ITEM \"" + entry.getKey() + "\"");
                 e.printStackTrace();
             }

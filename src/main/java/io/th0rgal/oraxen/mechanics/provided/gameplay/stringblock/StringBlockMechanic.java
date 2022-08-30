@@ -3,20 +3,14 @@ package io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock;
 import io.th0rgal.oraxen.compatibilities.CompatibilitiesManager;
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.sapling.SaplingMechanic;
 import io.th0rgal.oraxen.utils.drops.Drop;
 import io.th0rgal.oraxen.utils.drops.Loot;
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.block.BlockFace;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.MultipleFacing;
-import org.bukkit.block.data.type.Tripwire;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
 
 public class StringBlockMechanic extends Mechanic {
 
@@ -25,9 +19,13 @@ public class StringBlockMechanic extends Mechanic {
     private final Drop drop;
     private final String breakSound;
     private final String placeSound;
+    private final String stepSound;
+    private final String hitSound;
+    private final String fallSound;
     private String model;
     private int period;
     private final int light;
+    private final SaplingMechanic saplingMechanic;
 
     @SuppressWarnings("unchecked")
     public StringBlockMechanic(MechanicFactory mechanicFactory, ConfigurationSection section) {
@@ -40,16 +38,11 @@ public class StringBlockMechanic extends Mechanic {
             model = section.getString("model");
 
         customVariation = section.getInt("custom_variation");
-
-        if (section.isString("break_sound"))
-            breakSound = section.getString("break_sound");
-        else
-            breakSound = null;
-
-        if (section.isString("place_sound"))
-            placeSound = section.getString("place_sound");
-        else
-            placeSound = null;
+        placeSound = section.getString("place_sound", null);
+        breakSound = section.getString("break_sound", null);
+        stepSound = section.getString("step_sound", null);
+        hitSound = section.getString("hit_sound", null);
+        fallSound = section.getString("fall_sound", null);
 
         List<Loot> loots = new ArrayList<>();
         if (section.isConfigurationSection("drop")) {
@@ -80,6 +73,12 @@ public class StringBlockMechanic extends Mechanic {
         } else hasHardness = false;
 
         light = section.getInt("light", -1);
+
+        if (section.isConfigurationSection("sapling")) {
+            saplingMechanic = new SaplingMechanic(getItemID(), section.getConfigurationSection("sapling"));
+            ((StringBlockMechanicFactory) getFactory()).registerSaplingMechanic();
+        } else saplingMechanic = null;
+
     }
 
     public String getModel(ConfigurationSection section) {
@@ -88,6 +87,9 @@ public class StringBlockMechanic extends Mechanic {
         // use the itemstack model if block model isn't set
         return section.getString("Pack.model");
     }
+
+    public boolean isSapling() { return saplingMechanic != null; }
+    public SaplingMechanic getSaplingMechanic() { return saplingMechanic; }
 
     public int getCustomVariation() {
         return customVariation;
@@ -100,17 +102,31 @@ public class StringBlockMechanic extends Mechanic {
     public boolean hasBreakSound() {
         return breakSound != null;
     }
-
     public String getBreakSound() {
-        return breakSound;
+        return validateReplacedSounds(breakSound);
     }
 
     public boolean hasPlaceSound() {
         return placeSound != null;
     }
-
     public String getPlaceSound() {
-        return placeSound;
+        return validateReplacedSounds(placeSound);
+    }
+
+    public boolean hasStepSound() { return stepSound != null; }
+    public String getStepSound() { return validateReplacedSounds(stepSound); }
+
+    public boolean hasHitSound() { return hitSound != null; }
+    public String getHitSound() { return validateReplacedSounds(hitSound); }
+
+    public boolean hasFallSound() { return fallSound != null; }
+    public String getFallSound() { return validateReplacedSounds(fallSound); }
+    private String validateReplacedSounds(String sound) {
+        if (sound.startsWith("block.wood"))
+            return sound.replace("block.wood", "required.wood.");
+        else if (sound.startsWith("block.stone"))
+            return sound.replace("block.stone", "required.stone.");
+        else return sound;
     }
 
     public int getPeriod() {

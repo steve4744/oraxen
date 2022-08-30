@@ -1,16 +1,10 @@
 package io.th0rgal.oraxen.utils;
 
-import io.th0rgal.oraxen.utils.logs.Logs;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class OS {
 
@@ -37,7 +31,7 @@ public class OS {
         static String name = System.getProperty("os.name");
         static String version = System.getProperty("os.version");
         static String arch = System.getProperty("os.arch");
-        private final static OS INSTANCE = new OS(name, version, arch);
+        private static final OS INSTANCE = new OS(name, version, arch);
 
     }
 
@@ -84,6 +78,7 @@ public class OS {
         macOs.put("10.15", "Catalina");
         macOs.put("11.1", "Big Sur");
         macOs.put("12.1", "Monterey");
+        macOs.put("12.5.1", "Monterey");
 
         darwin.put(5, "Puma");
         darwin.put(6, "Jaguar");
@@ -107,7 +102,7 @@ public class OS {
         if (numericVersion < 10)
             this.osInfo = new OsInfo(name, version, arch, "Mac OS " + version);
         else
-            this.osInfo = new OsInfo(name, version, arch, "OS X " + macOs.get(version) + " (" + version + ")");
+            this.osInfo = new OsInfo(name, version, arch, "macOS " + macOs.get(version) + " (" + version + ")");
     }
 
     private void initDarwinOsInfo(final String name, final String version, final String arch) {

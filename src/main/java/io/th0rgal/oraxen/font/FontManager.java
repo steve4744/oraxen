@@ -1,12 +1,21 @@
 package io.th0rgal.oraxen.font;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.events.PacketContainer;
+import com.comphenix.protocol.wrappers.*;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.config.ConfigsManager;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 
+
+import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Path;
 import java.util.*;
 
 public class FontManager {
@@ -67,6 +76,10 @@ public class FontManager {
         return glyphMap.values();
     }
 
+    public final Collection<Glyph> getEmojis() {
+        return glyphMap.values().stream().filter(Glyph::isEmoji).toList();
+    }
+
     public final Collection<Font> getFonts() {
         return fonts;
     }
@@ -89,6 +102,9 @@ public class FontManager {
 
 
     public String getShift(int length) {
+        // Ensure shifts.yml exists as it is required
+        if (!Path.of(OraxenPlugin.get().getDataFolder() + "/glyphs/shifts.yml").toFile().exists())
+            OraxenPlugin.get().saveResource("glyphs/shifts.yml", false);
         StringBuilder output = new StringBuilder();
         while (length > 0) {
             int biggestPower = Integer.highestOneBit(length);
@@ -98,4 +114,37 @@ public class FontManager {
         return output.toString();
     }
 
+    public void sendGlyphTabCompletion(Player player, Boolean addPlayers) {
+        for (Map.Entry<String, Glyph> entry : getGlyphByPlaceholderMap().entrySet()) {
+            if (entry.getValue().hasTabCompletion()) {
+                ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
+                PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO);
+
+                if (addPlayers) packet.getPlayerInfoAction().write(0, EnumWrappers.PlayerInfoAction.ADD_PLAYER);
+                else {
+                    packet.getPlayerInfoAction().write(0, EnumWrappers.PlayerInfoAction.REMOVE_PLAYER);
+                }
+
+                final WrappedGameProfile profile = new WrappedGameProfile(
+                        UUID.randomUUID(), " " + entry.getValue().getCharacter());
+
+                if (entry.getValue().getTabIconTexture() != null && entry.getValue().getTabIconSignature() != null)
+                    profile.getProperties().put("textures",
+                            new WrappedSignedProperty(
+                                    "textures",
+                                    entry.getValue().getTabIconTexture(),
+                                    entry.getValue().getTabIconSignature()));
+
+                PlayerInfoData data = new PlayerInfoData(profile
+                        , 0, EnumWrappers.NativeGameMode.SPECTATOR,
+                        WrappedChatComponent.fromText(""));
+
+                List<PlayerInfoData> dataList = new ArrayList<>();
+                dataList.add(data);
+                packet.getPlayerInfoDataLists().write(0, dataList);
+
+                protocolManager.sendServerPacket(player, packet);
+            }
+        }
+    }
 }

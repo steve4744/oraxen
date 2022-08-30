@@ -1,11 +1,14 @@
 package io.th0rgal.oraxen.commands;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import dev.jorel.commandapi.CommandAPICommand;
 import io.th0rgal.oraxen.OraxenPlugin;
-import io.th0rgal.oraxen.font.FontManager;
 import io.th0rgal.oraxen.utils.OS;
+import net.md_5.bungee.api.chat.ComponentBuilder;
 import org.bukkit.Bukkit;
+
+import java.util.Map;
 
 public class DebugCommand {
 
@@ -13,8 +16,6 @@ public class DebugCommand {
         return new CommandAPICommand("debug")
                 .withPermission("oraxen.command.debug")
                 .executes((sender, args) -> {
-
-                    FontManager font = OraxenPlugin.get().getFontManager();
 
                     JsonObject report = new JsonObject();
                     OS system = OS.getOs();
@@ -37,7 +38,12 @@ public class DebugCommand {
                     report.add("plugin", pluginJson);
                     report.add("minecraft", minecraftJson);
 
-                    sender.sendMessage(report.toString());
+                    ComponentBuilder msg = new ComponentBuilder();
+                    for (Map.Entry<String, JsonElement> entry : report.entrySet()) {
+                        msg.append(entry.getKey());
+                        msg.append(entry.getValue().toString());
+                    }
+                    sender.spigot().sendMessage(msg.create());
                 });
     }
 

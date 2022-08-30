@@ -43,6 +43,8 @@ noteblock:
     - GOLDEN
     - DIAMOND
     - NETHERITE
+    - # ticks between each check for dryout
+  farmblock_check_delay: 1000
   enabled: true
 
 stringblock:
@@ -53,6 +55,7 @@ stringblock:
       - GOLDEN
       - DIAMOND
       - NETHERITE
+    sapling_growth_check_delay: 4000
     enabled: true
 
 # Only 1.16+
@@ -133,4 +136,7 @@ bedrockbreak:
   durability_cost: 500
 
 harvesting:
+  enabled: true
+
+watering:
   enabled: true

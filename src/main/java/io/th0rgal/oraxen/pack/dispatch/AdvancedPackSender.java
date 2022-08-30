@@ -14,10 +14,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-
-import java.lang.reflect.InvocationTargetException;
 
 public class AdvancedPackSender extends PackSender implements Listener {
 
@@ -35,12 +34,12 @@ public class AdvancedPackSender extends PackSender implements Listener {
 
     @Override
     public void register() {
-        if (Settings.SEND_PACK.toBool())
-            Bukkit.getPluginManager().registerEvents(this, OraxenPlugin.get());
+        Bukkit.getPluginManager().registerEvents(this, OraxenPlugin.get());
     }
 
     @Override
     public void unregister() {
+        HandlerList.unregisterAll(this);
     }
 
     @Override
@@ -50,11 +49,7 @@ public class AdvancedPackSender extends PackSender implements Listener {
         handle.getStrings().write(1, hostingProvider.getOriginalSHA1());
         handle.getBooleans().write(0, Settings.SEND_PACK_ADVANCED_MANDATORY.toBool());
         handle.getChatComponents().write(0, component);
-        try {
-            protocolManager.sendServerPacket(player, handle);
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
-        }
+        protocolManager.sendServerPacket(player, handle);
     }
 
     @EventHandler(priority = EventPriority.NORMAL)

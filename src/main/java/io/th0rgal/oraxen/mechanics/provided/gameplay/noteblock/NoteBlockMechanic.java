@@ -1,11 +1,16 @@
 package io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock;
 
+import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.compatibilities.CompatibilitiesManager;
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.directional.DirectionalBlock;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.farmblock.FarmBlockDryout;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.logstrip.LogStripping;
 import io.th0rgal.oraxen.utils.actions.ClickAction;
 import io.th0rgal.oraxen.utils.drops.Drop;
 import io.th0rgal.oraxen.utils.drops.Loot;
+import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
@@ -15,14 +20,22 @@ import java.util.List;
 
 public class NoteBlockMechanic extends Mechanic {
 
+    public static final NamespacedKey FARMBLOCK_KEY = new NamespacedKey(OraxenPlugin.get(), "farmblock");
     protected final boolean hasHardness;
     private final int customVariation;
     private final Drop drop;
     private final String breakSound;
     private final String placeSound;
+    private final String stepSound;
+    private final String hitSound;
+    private final String fallSound;
     private String model;
     private int period;
     private final int light;
+    private final boolean canIgnite;
+    private final FarmBlockDryout farmBlockDryout;
+    private final LogStripping logStripping;
+    private final DirectionalBlock directionalBlock;
     private final List<ClickAction> clickActions;
 
     @SuppressWarnings("unchecked")
@@ -37,15 +50,11 @@ public class NoteBlockMechanic extends Mechanic {
 
         customVariation = section.getInt("custom_variation");
 
-        if (section.isString("break_sound"))
-            breakSound = section.getString("break_sound");
-        else
-            breakSound = null;
-
-        if (section.isString("place_sound"))
-            placeSound = section.getString("place_sound");
-        else
-            placeSound = null;
+        placeSound = section.getString("place_sound", null);
+        breakSound = section.getString("break_sound", null);
+        stepSound = section.getString("step_sound", null);
+        hitSound = section.getString("hit_sound", null);
+        fallSound = section.getString("fall_sound", null);
 
         List<Loot> loots = new ArrayList<>();
         if (section.isConfigurationSection("drop")) {
@@ -77,7 +86,38 @@ public class NoteBlockMechanic extends Mechanic {
 
         light = section.getInt("light", -1);
         clickActions = ClickAction.parseList(section);
+        canIgnite = section.getBoolean("can_ignite", false);
+
+        if (section.isConfigurationSection("farmblock")) {
+            farmBlockDryout = new FarmBlockDryout(getItemID(), section.getConfigurationSection("farmblock"));
+            ((NoteBlockMechanicFactory) getFactory()).registerFarmBlock();
+        } else farmBlockDryout = null;
+
+        if (section.isConfigurationSection("logStrip")) {
+            logStripping = new LogStripping(section.getConfigurationSection("logStrip"));
+        } else logStripping = null;
+
+        if (section.isConfigurationSection("directional")) {
+            directionalBlock = new DirectionalBlock(section.getConfigurationSection("directional"));
+        } else directionalBlock = null;
+
     }
+
+    public boolean hasDryout() {
+        return farmBlockDryout != null;
+    }
+
+    public FarmBlockDryout getDryout() {
+        return farmBlockDryout;
+    }
+
+    public boolean isLog() { return logStripping != null; }
+
+    public LogStripping getLog() { return logStripping; }
+
+    public boolean isDirectional() { return directionalBlock != null; }
+
+    public DirectionalBlock getDirectional() { return directionalBlock; }
 
     public String getModel(ConfigurationSection section) {
         if (model != null)
@@ -97,17 +137,31 @@ public class NoteBlockMechanic extends Mechanic {
     public boolean hasBreakSound() {
         return breakSound != null;
     }
-
     public String getBreakSound() {
-        return breakSound;
+        return validateReplacedSounds(breakSound);
     }
 
     public boolean hasPlaceSound() {
         return placeSound != null;
     }
-
     public String getPlaceSound() {
-        return placeSound;
+        return validateReplacedSounds(placeSound);
+    }
+
+    public boolean hasStepSound() { return stepSound != null; }
+    public String getStepSound() { return validateReplacedSounds(stepSound); }
+
+    public boolean hasHitSound() { return hitSound != null; }
+    public String getHitSound() { return validateReplacedSounds(hitSound); }
+
+    public boolean hasFallSound() { return fallSound != null; }
+    public String getFallSound() { return validateReplacedSounds(fallSound); }
+    private String validateReplacedSounds(String sound) {
+        if (sound.startsWith("block.wood"))
+            return sound.replaceFirst("block.wood", "required.wood");
+        else if (sound.startsWith("block.stone"))
+            return sound.replaceFirst("block.stone", "required.stone");
+        else return sound;
     }
 
     public int getPeriod() {
@@ -117,6 +171,12 @@ public class NoteBlockMechanic extends Mechanic {
     public int getLight() {
         return light;
     }
+
+    public boolean canIgnite() {
+        return canIgnite;
+    }
+
+    public boolean hasClickActions() { return !clickActions.isEmpty(); }
 
     public void runClickActions(final Player player) {
         for (final ClickAction action : clickActions) {

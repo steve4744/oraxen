@@ -1,6 +1,7 @@
 package io.th0rgal.oraxen.commands;
 
 import dev.jorel.commandapi.CommandAPICommand;
+import dev.jorel.commandapi.arguments.ArgumentSuggestions;
 import dev.jorel.commandapi.arguments.TextArgument;
 import io.th0rgal.oraxen.config.Message;
 import io.th0rgal.oraxen.config.Settings;
@@ -8,7 +9,7 @@ import io.th0rgal.oraxen.items.OraxenItems;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.durability.DurabilityMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.durability.DurabilityMechanicFactory;
 import net.kyori.adventure.text.minimessage.Template;
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -22,7 +23,7 @@ public class RepairCommand {
     public CommandAPICommand getRepairCommand() {
         return new CommandAPICommand("repair")
                 .withPermission("oraxen.command.repair")
-                .withArguments(new TextArgument("type").replaceSuggestions(info -> new String[]{"hand", "all"}))
+                .withArguments(new TextArgument("type").replaceSuggestions(ArgumentSuggestions.strings("hand", "all")))
                 .executes((sender, args) -> {
 
                     if (sender instanceof Player player) if ((args[0]).equals("hand")) {
@@ -80,7 +81,7 @@ public class RepairCommand {
                     .set(DurabilityMechanic.NAMESPACED_KEY, PersistentDataType.INTEGER, realMaxDurability);
         }
         damageable.setDamage(0);
-        itemStack.setItemMeta((ItemMeta) damageable);
+        itemStack.setItemMeta(damageable);
         return false;
     }
 

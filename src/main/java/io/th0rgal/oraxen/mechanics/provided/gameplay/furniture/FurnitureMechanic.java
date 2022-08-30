@@ -1,6 +1,6 @@
 package io.th0rgal.oraxen.mechanics.provided.gameplay.furniture;
 
-import de.jeff_media.customblockdata.CustomBlockData;
+import com.jeff_media.customblockdata.CustomBlockData;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.compatibilities.CompatibilitiesManager;
 import io.th0rgal.oraxen.compatibilities.provided.lightapi.WrappedLightAPI;
@@ -8,22 +8,27 @@ import io.th0rgal.oraxen.items.OraxenItems;
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.evolution.EvolvingFurniture;
+import io.th0rgal.oraxen.utils.BlockHelpers;
 import io.th0rgal.oraxen.utils.actions.ClickAction;
 import io.th0rgal.oraxen.utils.drops.Drop;
 import io.th0rgal.oraxen.utils.drops.Loot;
-import net.Indyuce.mmoitems.stat.Armor;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.entity.*;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
-import org.checkerframework.checker.units.qual.C;
 
 import java.util.*;
+
+import static io.th0rgal.oraxen.utils.BlockHelpers.VANILLA_STONE_BREAK;
+import static io.th0rgal.oraxen.utils.BlockHelpers.VANILLA_STONE_PLACE;
 
 public class FurnitureMechanic extends Mechanic {
 
@@ -33,9 +38,16 @@ public class FurnitureMechanic extends Mechanic {
     public static final NamespacedKey ORIENTATION_KEY = new NamespacedKey(OraxenPlugin.get(), "orientation");
     public static final NamespacedKey EVOLUTION_KEY = new NamespacedKey(OraxenPlugin.get(), "evolution");
     public final boolean farmlandRequired;
+    public final boolean farmblockRequired;
+    private final String breakSound;
+    private final String placeSound;
+    private final String stepSound;
+    private final String hitSound;
+    private final String fallSound;
     private final List<BlockLocation> barriers;
     private final boolean hasRotation;
     private final boolean hasSeat;
+    private boolean hasSeatYaw;
     private final BlockFace facing;
     private final Drop drop;
     private final EvolvingFurniture evolvingFurniture;
@@ -52,6 +64,12 @@ public class FurnitureMechanic extends Mechanic {
         super(mechanicFactory, section, itemBuilder -> itemBuilder.setCustomTag(FURNITURE_KEY,
                 PersistentDataType.BYTE, (byte) 1));
 
+        placeSound = section.getString("place_sound", null);
+        breakSound = section.getString("break_sound", null);
+        stepSound = section.getString("step_sound", null);
+        hitSound = section.getString("hit_sound", null);
+        fallSound = section.getString("fall_sound", null);
+
         if (section.isString("item"))
             placedItemId = section.getString("item");
 
@@ -66,7 +84,12 @@ public class FurnitureMechanic extends Mechanic {
             ConfigurationSection seatSection = section.getConfigurationSection("seat");
             hasSeat = true;
             seatHeight = (float) seatSection.getDouble("height");
-            seatYaw = (float) seatSection.getDouble("yaw");
+            if (seatSection.contains("yaw")) {
+                hasSeatYaw = true;
+                seatYaw = (float) seatSection.getDouble("yaw");
+            } else {
+                hasSeatYaw = false;
+            }
         } else
             hasSeat = false;
 
@@ -84,6 +107,7 @@ public class FurnitureMechanic extends Mechanic {
         light = section.getInt("light", -1);
 
         farmlandRequired = section.getBoolean("farmland_required", false);
+        farmblockRequired = section.getBoolean("farmblock_required", false);
 
         facing = section.isString("facing")
                 ? BlockFace.valueOf(section.getString("facing").toUpperCase())
@@ -125,6 +149,36 @@ public class FurnitureMechanic extends Mechanic {
             }
         }
         return null;
+    }
+
+    public boolean hasBreakSound() {
+        return breakSound != null;
+    }
+    public String getBreakSound() {
+        return validateReplacedSounds(breakSound);
+    }
+
+    public boolean hasPlaceSound() {
+        return placeSound != null;
+    }
+    public String getPlaceSound() {
+        return validateReplacedSounds(placeSound);
+    }
+
+    public boolean hasStepSound() { return stepSound != null; }
+    public String getStepSound() { return validateReplacedSounds(stepSound); }
+
+    public boolean hasHitSound() { return hitSound != null; }
+    public String getHitSound() { return validateReplacedSounds(hitSound); }
+
+    public boolean hasFallSound() { return fallSound != null; }
+    public String getFallSound() { return validateReplacedSounds(fallSound); }
+    private String validateReplacedSounds(String sound) {
+        if (sound.startsWith("block.wood"))
+            return sound.replace("block.wood", "required.wood.");
+        else if (sound.startsWith("block.stone"))
+            return sound.replace("block.stone", "required.stone.");
+        else return sound;
     }
 
     public boolean hasBarriers() {
@@ -175,7 +229,7 @@ public class FurnitureMechanic extends Mechanic {
         return evolvingFurniture;
     }
 
-    private void setPlacedItem() {
+    public void setPlacedItem() {
         if (placedItem == null) {
             placedItem = OraxenItems.getItemById(placedItemId != null ? placedItemId : getItemID()).build();
             ItemMeta meta = placedItem.getItemMeta();
@@ -189,8 +243,7 @@ public class FurnitureMechanic extends Mechanic {
         return place(rotation, yaw, facing, location, placedItem);
     }
 
-    public ItemFrame place(Rotation rotation, float yaw, BlockFace facing, Location location,
-                           ItemStack item) {
+    public ItemFrame place(Rotation rotation, float yaw, BlockFace facing, Location location, ItemStack item) {
         if (!this.isEnoughSpace(yaw, location))
             return null;
 
@@ -208,36 +261,32 @@ public class FurnitureMechanic extends Mechanic {
                 frame.setItem(clone);
             } else
                 frame.setItem(placedItem);
-
             frame.setRotation(rotation);
-
             frame.setFacingDirection(hasFacing() ? getFacing() : facing, true);
             frame.getPersistentDataContainer().set(FURNITURE_KEY, PersistentDataType.STRING, getItemID());
-            if (hasSeat() && !hasBarriers()) {
-                String entityId = spawnSeat(this, location.getBlock(), seatYaw);
-                frame.getPersistentDataContainer().set(SEAT_KEY, PersistentDataType.STRING, entityId);
-            }
             if (hasEvolution())
                 frame.getPersistentDataContainer().set(EVOLUTION_KEY, PersistentDataType.INTEGER, 0);
         });
 
         if (hasBarriers())
-            for (Location sideLocation : getLocations(yaw, location, getBarriers())) {
-                Block block = sideLocation.getBlock();
+            for (Location barrierLocation : getLocations(yaw, location, getBarriers())) {
+                Block block = barrierLocation.getBlock();
                 PersistentDataContainer data = new CustomBlockData(block, OraxenPlugin.get());
                 data.set(FURNITURE_KEY, PersistentDataType.STRING, getItemID());
                 if (hasSeat()) {
-                    String entityId = spawnSeat(this, block, seatYaw);
+                    String entityId = spawnSeat(this, block, hasSeatYaw ? seatYaw : yaw);
                     data.set(SEAT_KEY, PersistentDataType.STRING, entityId);
                 }
                 data.set(ROOT_KEY, PersistentDataType.STRING, new BlockLocation(location).toString());
                 data.set(ORIENTATION_KEY, PersistentDataType.FLOAT, yaw);
                 block.setType(Material.BARRIER, false);
                 if (light != -1)
-                    WrappedLightAPI.createBlockLight(sideLocation, light);
+                    WrappedLightAPI.createBlockLight(barrierLocation, light);
             }
         else if (light != -1)
             WrappedLightAPI.createBlockLight(location, light);
+
+        BlockHelpers.playCustomBlockSound(location, hasPlaceSound() ? getPlaceSound() : VANILLA_STONE_PLACE);
         return output;
     }
 
@@ -251,12 +300,13 @@ public class FurnitureMechanic extends Mechanic {
                 WrappedLightAPI.removeBlockLight(location);
             if (hasSeat()) {
                 ArmorStand seat = getSeat(location);
-                 if(seat != null && seat.getPersistentDataContainer().has(SEAT_KEY, PersistentDataType.STRING)) {
-                     seat.getPassengers().clear();
-                     seat.remove();
-                 }
+                if (seat != null && seat.getPersistentDataContainer().has(SEAT_KEY, PersistentDataType.STRING)) {
+                    seat.getPassengers().clear();
+                    seat.remove();
+                }
             }
             location.getBlock().setType(Material.AIR);
+            new CustomBlockData(location.getBlock(), OraxenPlugin.get()).clear();
         }
 
         boolean removed = false;
@@ -282,6 +332,7 @@ public class FurnitureMechanic extends Mechanic {
                 break;
             }
 
+        BlockHelpers.playCustomBlockSound(rootLocation, hasBreakSound() ? getBreakSound() : VANILLA_STONE_BREAK);
         return removed;
     }
 
@@ -300,6 +351,8 @@ public class FurnitureMechanic extends Mechanic {
             WrappedLightAPI.removeBlockLight(location);
         }
         frame.remove();
+        if (hasBreakSound())
+            BlockHelpers.playCustomBlockSound(location, getBreakSound());
     }
 
     public void remove(ItemFrame frame) {
@@ -328,6 +381,8 @@ public class FurnitureMechanic extends Mechanic {
         return (Arrays.asList(Rotation.values()).indexOf(rotation) * 360f) / 8f;
     }
 
+    public boolean hasClickActions() { return !clickActions.isEmpty(); }
+
     public void runClickActions(final Player player) {
         for (final ClickAction action : clickActions) {
             if (action.canRun(player)) {
@@ -335,7 +390,7 @@ public class FurnitureMechanic extends Mechanic {
             }
         }
     }
-  
+
     private String spawnSeat(FurnitureMechanic mechanic, Block target, float yaw) {
         if (mechanic.hasSeat()) {
             final ArmorStand seat = target.getWorld().spawn(target.getLocation()
@@ -357,14 +412,14 @@ public class FurnitureMechanic extends Mechanic {
         return null;
     }
 
-    public ItemFrame getItemFrame(Location location) {
+    public ItemFrame getItemFrame(Block block, BlockLocation blockLocation, Float orientation) {
         if (hasBarriers()) {
-            for (Location sideLocation : getLocations(location.getYaw(), location, getBarriers())) {
-                for (Entity entity : sideLocation.getWorld().getNearbyEntities(location, 1, 1, 1))
+            for (Location sideLocation : getLocations(orientation, blockLocation.toLocation(block.getWorld()), getBarriers())) {
+                for (Entity entity : sideLocation.getWorld().getNearbyEntities(sideLocation, 1, 1, 1))
                     if (entity instanceof ItemFrame frame
-                            && entity.getLocation().getBlockX() == location.getBlockX()
-                            && entity.getLocation().getBlockY() == location.getBlockY()
-                            && entity.getLocation().getBlockZ() == location.getBlockZ()
+                            && entity.getLocation().getBlockX() == sideLocation.getBlockX()
+                            && entity.getLocation().getBlockY() == sideLocation.getBlockY()
+                            && entity.getLocation().getBlockZ() == sideLocation.getBlockZ()
                             && entity.getPersistentDataContainer().has(FURNITURE_KEY, PersistentDataType.STRING))
                         return frame;
             }

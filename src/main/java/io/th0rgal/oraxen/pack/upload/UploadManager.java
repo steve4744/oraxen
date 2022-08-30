@@ -19,6 +19,7 @@ import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Parameter;
 import java.nio.file.ProviderNotFoundException;
 import java.util.Locale;
 
@@ -30,7 +31,6 @@ public class UploadManager {
     private final HostingProvider hostingProvider;
     private PackSender packSender;
     private PackReceiver receiver;
-    private PackSender sender;
 
     public UploadManager(final Plugin plugin) {
         this.plugin = plugin;
@@ -50,11 +50,15 @@ public class UploadManager {
         uploadAsyncAndSendToPlayers(resourcePack, false);
     }
 
-    public void uploadAsyncAndSendToPlayers(final ResourcePack resourcePack, final boolean updateSend) {
+    public void uploadAsyncAndSendToPlayers(final ResourcePack resourcePack, final boolean updatePackSender) {
         if (!enabled)
             return;
-        if (Settings.RECEIVE_ENABLED.toBool() && receiver == null)
-            Bukkit.getPluginManager().registerEvents(receiver = new PackReceiver(), plugin);
+
+        if (Settings.RECEIVE_ENABLED.toBool() && receiver == null) {
+            receiver = new PackReceiver();
+            Bukkit.getPluginManager().registerEvents(receiver, plugin);
+        }
+
         final long time = System.currentTimeMillis();
         Message.PACK_UPLOADING.log();
         Bukkit.getScheduler().runTaskAsynchronously(OraxenPlugin.get(), () -> {
@@ -66,13 +70,25 @@ public class UploadManager {
                     Template.template("url", hostingProvider.getPackURL()),
                     Template.template("delay", String.valueOf(System.currentTimeMillis() - time)));
 
-            if ((Settings.SEND_PACK.toBool() || Settings.SEND_JOIN_MESSAGE.toBool()) && sender == null) {
+            if (packSender == null) {
                 packSender = (CompatibilitiesManager.hasPlugin("ProtocolLib") && Settings.SEND_PACK_ADVANCED.toBool())
                         ? new AdvancedPackSender(hostingProvider) : new BukkitPackSender(hostingProvider);
+            } else if (updatePackSender) {
+                packSender.unregister();
+                packSender = (CompatibilitiesManager.hasPlugin("ProtocolLib") && Settings.SEND_PACK_ADVANCED.toBool())
+                        ? new AdvancedPackSender(hostingProvider) : new BukkitPackSender(hostingProvider);
+            }
+
+            if (Settings.SEND_PACK.toBool() || Settings.SEND_JOIN_MESSAGE.toBool()) {
                 packSender.register();
-                if (!hostingProvider.getPackURL().equals(url)) for (Player player : Bukkit.getOnlinePlayers())
-                    packSender.sendPack(player);
+                if (!hostingProvider.getPackURL().equals(url))
+                    for (Player player : Bukkit.getOnlinePlayers())
+                        packSender.sendPack(player);
                 url = hostingProvider.getPackURL();
+            } else {
+                if (packSender != null) {
+                    packSender.unregister();
+                }
             }
         });
     }
@@ -93,7 +109,7 @@ public class UploadManager {
             throw new ProviderNotFoundException("No provider set.");
         try {
             target = Class.forName(klass);
-        } catch (final Throwable any) {
+        } catch (final Exception any) {
             final ProviderNotFoundException error = new ProviderNotFoundException("Provider not found: " + klass);
             error.addSuppressed(any);
             throw error;
@@ -106,24 +122,19 @@ public class UploadManager {
     private HostingProvider constructExternalHostingProvider(final Class<?> target,
                                                              final ConfigurationSection options) {
         final Class<? extends HostingProvider> implement = target.asSubclass(HostingProvider.class);
-        Constructor<? extends HostingProvider> constructor;
-        try {
-            try {
-                constructor = implement.getConstructor(ConfigurationSection.class);
-            } catch (final Exception notFound) {
-                try {
-                    constructor = implement.getConstructor();
-                } catch (final Exception ignore) {
-                    // For catching reasons
-                    throw (ProviderNotFoundException)
-                            new ProviderNotFoundException("Invalid provider: " + target).initCause(ignore);
-                    // Use (Lorg/bukkit/configuration/ConfigurationSection;)V to Exception
-                }
+        Constructor<? extends HostingProvider> constructor = null;
+        for(final Constructor<?> implementConstructor : implement.getConstructors()) {
+            Parameter[] parameters = implementConstructor.getParameters();
+            if(parameters.length == 0 || (parameters.length == 1 && parameters[0].getType().equals(ConfigurationSection.class))) {
+                constructor = (Constructor<? extends HostingProvider>) implementConstructor;
+                break;
             }
-        } catch (final Exception e) {
-            throw (ProviderNotFoundException) new ProviderNotFoundException("Cannot found constructor in " + target)
-                    .initCause(e);
         }
+
+        if(constructor == null) {
+            throw new ProviderNotFoundException("Invalid provider: " + target);
+        }
+
         try {
             return constructor.getParameterCount() == 0 ? constructor.newInstance()
                     : constructor.newInstance(options);

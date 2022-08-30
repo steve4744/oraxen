@@ -1,12 +1,13 @@
 package io.th0rgal.oraxen.utils.drops;
 
+import io.lumine.mythiccrucible.MythicCrucible;
 import io.th0rgal.oraxen.items.OraxenItems;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.LinkedHashMap;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Loot {
 
@@ -34,26 +35,24 @@ public class Loot {
     }
 
     private ItemStack getItemStack() {
-        if (itemStack != null) {
-            return itemStack;
-        }
+        if (itemStack != null) return itemStack;
+
         if (config.containsKey("oraxen_item")) {
-            String itemId = (String) config.get("oraxen_item");
+            String itemId = config.get("oraxen_item").toString();
             itemStack = OraxenItems.getItemById(itemId).build();
-            return itemStack;
-        }
-        if (config.containsKey("minecraft_type")) {
-            String itemType = (String) config.get("minecraft_type");
+        } else if (config.containsKey("crucible_item")) {
+            String crucibleID = config.get("crucible_item").toString();
+            itemStack = MythicCrucible.core().getItemManager().getItemStack(crucibleID);
+        } else if (config.containsKey("minecraft_type")) {
+            String itemType = config.get("minecraft_type").toString();
             Material material = Material.getMaterial(itemType);
             itemStack = new ItemStack(material);
-            return itemStack;
-        }
-        itemStack = (ItemStack) config.get("minecraft_item");
+        } else itemStack = (ItemStack) config.get("minecraft_item");
         return itemStack;
     }
 
     public void dropNaturally(Location location, int amountMultiplier) {
-        if (new Random().nextInt(probability) == 0)
+        if (ThreadLocalRandom.current().nextInt(probability) == 0)
             dropItems(location, amountMultiplier);
     }
 

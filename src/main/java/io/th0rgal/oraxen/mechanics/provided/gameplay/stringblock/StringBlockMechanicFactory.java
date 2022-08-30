@@ -5,16 +5,13 @@ import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
-import io.th0rgal.oraxen.utils.logs.Logs;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.sapling.SaplingListener;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.sapling.SaplingTask;
 import org.bukkit.Bukkit;
-import org.bukkit.Instrument;
 import org.bukkit.Material;
-import org.bukkit.Note;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.MultipleFacing;
-import org.bukkit.block.data.type.NoteBlock;
 import org.bukkit.block.data.type.Tripwire;
 import org.bukkit.configuration.ConfigurationSection;
 
@@ -29,21 +26,28 @@ public class StringBlockMechanicFactory extends MechanicFactory {
     private static JsonObject variants;
     private static StringBlockMechanicFactory instance;
     public final List<String> toolTypes;
+    private boolean sapling;
+    private static SaplingTask saplingTask;
+    public final int saplingGrowthCheckDelay;
 
     public StringBlockMechanicFactory(ConfigurationSection section) {
         super(section);
         instance = this;
         variants = new JsonObject();
+        variants.add("east=false,west=false,south=false,north=false,attached=false,disarmed=false,powered=false", getModelJson("block/barrier"));
         toolTypes = section.getStringList("tool_types");
+        saplingGrowthCheckDelay = section.getInt("sapling_growth_check_delay");
+        sapling = false;
         // this modifier should be executed when all the items have been parsed, just
         // before zipping the pack
         OraxenPlugin.get().getResourcePack().addModifiers(getMechanicID(),
-                packFolder -> {
-                    OraxenPlugin.get().getResourcePack()
-                            .writeStringToVirtual("assets/minecraft/blockstates",
-                                    "tripwire.json", getBlockstateContent());
-                });
+                packFolder ->
+                        OraxenPlugin.get().getResourcePack()
+                                .writeStringToVirtual("assets/minecraft/blockstates",
+                                        "tripwire.json", getBlockstateContent())
+        );
         MechanicsManager.registerListeners(OraxenPlugin.get(), new StringBlockMechanicListener(this));
+        MechanicsManager.registerListeners(OraxenPlugin.get(), new SaplingListener());
     }
 
     public static JsonObject getModelJson(String modelName) {
@@ -78,15 +82,15 @@ public class StringBlockMechanicFactory extends MechanicFactory {
      * @param itemId The Oraxen item ID.
      */
     public static void setBlockModel(Block block, String itemId) {
-        final MechanicFactory mechanicFactory = MechanicsManager.getMechanicFactory("noteblock");
-        StringBlockMechanic noteBlockMechanic = (StringBlockMechanic) mechanicFactory.getMechanic(itemId);
-        block.setBlockData(createTripwireData(noteBlockMechanic.getCustomVariation()), false);
+        final MechanicFactory mechanicFactory = MechanicsManager.getMechanicFactory("stringblock");
+        StringBlockMechanic stringBlockMechanic = (StringBlockMechanic) mechanicFactory.getMechanic(itemId);
+        block.setBlockData(createTripwireData(stringBlockMechanic.getCustomVariation()), false);
     }
 
     private String getBlockstateContent() {
-        JsonObject noteblock = new JsonObject();
-        noteblock.add("variants", variants);
-        return noteblock.toString();
+        JsonObject tripwire = new JsonObject();
+        tripwire.add("variants", variants);
+        return tripwire.toString();
     }
 
     @Override
@@ -145,4 +149,23 @@ public class StringBlockMechanicFactory extends MechanicFactory {
         return createTripwireData(((StringBlockMechanic) getInstance().getMechanic(itemID)).getCustomVariation());
     }
 
+    public void registerSaplingMechanic() {
+        if (sapling) return;
+        if (saplingTask != null) saplingTask.cancel();
+
+        // Disabled for abit as OraxenItems.getItems() here
+        // Dont register if there is no sapling in configs
+//        List<String> saplingList = new ArrayList<>();
+//        for (ItemBuilder itemBuilder : OraxenItems.getItems()) {
+//            String id = OraxenItems.getIdByItem(itemBuilder.build());
+//            StringBlockMechanic mechanic = (StringBlockMechanic) StringBlockMechanicFactory.getInstance().getMechanic(id);
+//            if (mechanic == null || !mechanic.isSapling()) continue;
+//            saplingList.add(id);
+//        }
+//        if (saplingList.isEmpty()) return;
+
+        saplingTask = new SaplingTask(saplingGrowthCheckDelay);
+        saplingTask.runTaskTimer(OraxenPlugin.get(), 0, saplingGrowthCheckDelay);
+        sapling = true;
+    }
 }

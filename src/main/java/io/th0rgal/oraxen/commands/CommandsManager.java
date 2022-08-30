@@ -1,10 +1,7 @@
 package io.th0rgal.oraxen.commands;
 
 import dev.jorel.commandapi.CommandAPICommand;
-import dev.jorel.commandapi.arguments.EntitySelectorArgument;
-import dev.jorel.commandapi.arguments.GreedyStringArgument;
-import dev.jorel.commandapi.arguments.IntegerArgument;
-import dev.jorel.commandapi.arguments.TextArgument;
+import dev.jorel.commandapi.arguments.*;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.config.Message;
 import io.th0rgal.oraxen.items.ItemBuilder;
@@ -12,6 +9,7 @@ import io.th0rgal.oraxen.items.ItemUpdater;
 import io.th0rgal.oraxen.items.OraxenItems;
 import net.kyori.adventure.text.minimessage.Template;
 import org.bukkit.Color;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -24,6 +22,9 @@ import java.util.Map;
 public class CommandsManager {
 
     public void loadCommands() {
+        ConfigurationSection commandsSection =
+                OraxenPlugin.get().getConfigsManager().getSettings().getConfigurationSection("Plugin.commands");
+        if (commandsSection == null) return;
         new CommandAPICommand("oraxen")
                 .withAliases("o", "oxn")
                 .withPermission("oraxen.command")
@@ -37,6 +38,10 @@ public class CommandsManager {
                 .withSubcommand((new RecipesCommand()).getRecipesCommand())
                 .withSubcommand((new ReloadCommand()).getReloadCommand())
                 .withSubcommand((new DebugCommand()).getDebugCommand())
+                .withSubcommand((new ModelDataCommand()).getHighestModelDataCommand())
+                .withSubcommand((new GlyphCommand()).getGlyphCommand(commandsSection))
+                .withSubcommand((new PrintGlyphCommand()).getPrintGlyphCommand())
+                .withSubcommand((new ItemInfoCommand()).getItemInfoCommand())
                 .executes((sender, args) -> {
                     Message.COMMAND_HELP.send(sender);
                 })
@@ -83,9 +88,9 @@ public class CommandsManager {
         return new CommandAPICommand("pack")
                 .withPermission("oraxen.command.pack")
                 .withArguments(new TextArgument("action")
-                        .replaceSuggestions(info -> new String[]{"send", "msg"}))
+                        .replaceSuggestions(ArgumentSuggestions.strings("send", "msg")))
                 .withArguments(new EntitySelectorArgument("targets",
-                        EntitySelectorArgument.EntitySelector.MANY_PLAYERS))
+                        EntitySelector.MANY_PLAYERS))
                 .executes((sender, args) -> {
                     final Collection<Player> targets = (Collection<Player>) args[1];
                     if (args[0].equals("msg"))
@@ -114,9 +119,9 @@ public class CommandsManager {
         return new CommandAPICommand("give")
                 .withPermission("oraxen.command.give")
                 .withArguments(new EntitySelectorArgument("targets",
-                                EntitySelectorArgument.EntitySelector.MANY_PLAYERS),
+                                EntitySelector.MANY_PLAYERS),
                         new TextArgument("item")
-                                .replaceSuggestions(info -> OraxenItems.getItemNames()),
+                                .replaceSuggestions(ArgumentSuggestions.strings(OraxenItems.getItemNames())),
                         new IntegerArgument("amount"))
                 .executes((sender, args) -> {
                     final Collection<Player> targets = (Collection<Player>) args[0];
@@ -151,9 +156,9 @@ public class CommandsManager {
         return new CommandAPICommand("give")
                 .withPermission("oraxen.command.give")
                 .withArguments(new EntitySelectorArgument("targets",
-                                EntitySelectorArgument.EntitySelector.MANY_PLAYERS),
+                                EntitySelector.MANY_PLAYERS),
                         new TextArgument("item")
-                                .replaceSuggestions(info -> OraxenItems.getItemNames()))
+                                .replaceSuggestions(ArgumentSuggestions.strings(info -> OraxenItems.getItemNames())))
                 .executes((sender, args) -> {
                     final Collection<Player> targets = (Collection<Player>) args[0];
                     final String itemID = (String) args[1];
@@ -179,9 +184,9 @@ public class CommandsManager {
         return new CommandAPICommand("update")
                 .withPermission("oraxen.command.update")
                 .withArguments(new EntitySelectorArgument("targets",
-                        EntitySelectorArgument.EntitySelector.MANY_PLAYERS))
+                        EntitySelector.MANY_PLAYERS))
                 .withArguments(new TextArgument("type")
-                        .replaceSuggestions(info -> new String[]{"hand", "all"}))
+                        .replaceSuggestions(ArgumentSuggestions.strings("hand", "all")))
                 .executes((sender, args) -> {
                     final Collection<Player> targets = (Collection<Player>) args[0];
 

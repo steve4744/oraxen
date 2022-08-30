@@ -6,6 +6,7 @@ import io.th0rgal.oraxen.compatibilities.provided.itembridge.ItemBridgeCompatibi
 import io.th0rgal.oraxen.compatibilities.provided.lightapi.WrappedLightAPI;
 import io.th0rgal.oraxen.compatibilities.provided.mythicmobs.MythicMobsCompatibility;
 import io.th0rgal.oraxen.compatibilities.provided.placeholderapi.PlaceholderAPICompatibility;
+import io.th0rgal.oraxen.compatibilities.provided.worldedit.WrappedWorldEdit;
 import io.th0rgal.oraxen.config.Message;
 import net.kyori.adventure.text.minimessage.Template;
 import org.bukkit.Bukkit;
@@ -15,11 +16,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class CompatibilitiesManager {
 
+    private CompatibilitiesManager() {}
+
     private static final ConcurrentHashMap<String, Class<? extends CompatibilityProvider<?>>> COMPATIBILITY_PROVIDERS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, CompatibilityProvider<?>> ACTIVE_COMPATIBILITY_PROVIDERS = new ConcurrentHashMap<>();
 
     public static void enableNativeCompatibilities() {
         WrappedLightAPI.init();
+        WrappedWorldEdit.init();
         new CompatibilityListener();
         addCompatibility("PlaceholderAPI", PlaceholderAPICompatibility.class, true);
         addCompatibility("BossShopPro", BossShopProCompatibility.class, true);

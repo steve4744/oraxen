@@ -10,20 +10,22 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.transformation.TransformationRegistry;
 import net.kyori.adventure.text.minimessage.transformation.TransformationType;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 public class Utils {
+
+    private Utils() {}
 
     public static final LegacyComponentSerializer LEGACY_COMPONENT_SERIALIZER = LegacyComponentSerializer.builder()
             .hexColors()
@@ -40,9 +42,6 @@ public class Utils {
                     )).build()
             )
             .build();
-    public static final List<Material> REPLACEABLE_BLOCKS = Arrays
-            .asList(Material.SNOW, Material.VINE, Material.GRASS, Material.TALL_GRASS, Material.SEAGRASS, Material.FERN,
-                    Material.LARGE_FERN);
 
     public static List<String> toLowercaseList(final String... values) {
         final ArrayList<String> list = new ArrayList<>();
@@ -80,14 +79,11 @@ public class Utils {
     }
 
     public static void writeStringToFile(final File file, final String content) {
-        try {
-            file.getParentFile().mkdirs();
-            final BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+        file.getParentFile().mkdirs();
+        try(final FileWriter writer = new FileWriter(file)) {
             writer.write(content);
-            writer.flush();
-            writer.close();
-        } catch (final IOException e) {
-            e.printStackTrace();
+        } catch(IOException ex) {
+            ex.printStackTrace();
         }
     }
 
@@ -102,11 +98,7 @@ public class Utils {
         final PacketContainer animation = protocolManager.createPacket(PacketType.Play.Server.ANIMATION);
         animation.getIntegers().write(0, player.getEntityId());
         animation.getIntegers().write(1, (hand == EquipmentSlot.HAND) ? 0 : 3);
-        try {
-            protocolManager.sendServerPacket(player, animation);
-        } catch (final InvocationTargetException e) {
-            e.printStackTrace();
-        }
+        protocolManager.sendServerPacket(player, animation);
     }
 
 }
