@@ -1,20 +1,23 @@
 package io.th0rgal.oraxen.recipes.listeners;
 
 import io.th0rgal.oraxen.OraxenPlugin;
-import io.th0rgal.oraxen.items.OraxenItems;
+import io.th0rgal.oraxen.api.OraxenItems;
+import io.th0rgal.oraxen.config.Settings;
 import io.th0rgal.oraxen.recipes.CustomRecipe;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class RecipesEventsManager implements Listener {
 
@@ -34,24 +37,31 @@ public class RecipesEventsManager implements Listener {
         Bukkit.getPluginManager().registerEvents(instance, OraxenPlugin.get());
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.NORMAL)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onCrafted(PrepareItemCraftEvent event) {
         Recipe recipe = event.getRecipe();
         Player player = (Player) event.getView().getPlayer();
-        if (hasPermission(player, CustomRecipe.fromRecipe(recipe)))
-            return;
+        if (!hasPermission(player, CustomRecipe.fromRecipe(recipe))) event.getInventory().setResult(null);
+
         ItemStack result = event.getInventory().getResult();
-        if (result == null)
-            return;
+        if (result == null) return;
+
         boolean containsOraxenItem = Arrays.stream(event.getInventory().getMatrix()).anyMatch(ingredient -> OraxenItems.exists(OraxenItems.getIdByItem(ingredient)));
         if (!containsOraxenItem || recipe == null) return;
-        CustomRecipe current = new CustomRecipe(null, recipe.getResult(),
-                Arrays.asList(event.getInventory().getMatrix()));
+
+        CustomRecipe current = new CustomRecipe(null, recipe.getResult(), Arrays.asList(event.getInventory().getMatrix()));
         for (CustomRecipe whitelistedRecipe : whitelistedCraftRecipes) {
-            if (whitelistedRecipe.equals(current))
-                return;
+            if (whitelistedRecipe.equals(current)) return;
         }
-        event.getInventory().setResult(new ItemStack(Material.AIR));
+
+        event.getInventory().setResult(null);
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        if (!Settings.ADD_RECIPES_TO_BOOK.toBool()) return;
+        Player player = event.getPlayer();
+        player.discoverRecipes(getPermittedRecipes(player).stream().map(r -> NamespacedKey.fromString(r.getName(), OraxenPlugin.get())).collect(Collectors.toSet()));
     }
 
     public void resetRecipes() {
@@ -85,7 +95,7 @@ public class RecipesEventsManager implements Listener {
 
 
     public boolean hasPermission(CommandSender sender, CustomRecipe recipe) {
-        return permissionsPerRecipe.containsKey(recipe) && sender.hasPermission(permissionsPerRecipe.get(recipe));
+        return !permissionsPerRecipe.containsKey(recipe) || sender.hasPermission(permissionsPerRecipe.get(recipe));
     }
 
 }

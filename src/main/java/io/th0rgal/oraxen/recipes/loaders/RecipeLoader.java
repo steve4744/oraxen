@@ -1,12 +1,13 @@
 package io.th0rgal.oraxen.recipes.loaders;
 
 import io.th0rgal.oraxen.OraxenPlugin;
-import io.th0rgal.oraxen.items.OraxenItems;
+import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.recipes.CustomRecipe;
 import io.th0rgal.oraxen.recipes.listeners.RecipesEventsManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Tag;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
@@ -26,12 +27,16 @@ public abstract class RecipeLoader {
 
     protected ItemStack getResult() {
         ConfigurationSection resultSection = getSection().getConfigurationSection("result");
+        if (resultSection == null) return null;
 
         if (resultSection.isString("oraxen_item"))
             return OraxenItems.getItemById(resultSection.getString("oraxen_item")).build();
 
-        if (resultSection.isString("minecraft_type"))
-            return new ItemStack(Material.getMaterial(resultSection.getString("minecraft_type").toUpperCase()));
+        if (resultSection.isString("minecraft_type")) {
+            Material material = Material.getMaterial(resultSection.getString("minecraft_type", "AIR"));
+            if (material == null || material.isAir()) return null;
+            return new ItemStack(material);
+        }
 
         return resultSection.getItemStack("minecraft_item");
 
@@ -41,23 +46,40 @@ public abstract class RecipeLoader {
         if (ingredientSection.isString("oraxen_item"))
             return OraxenItems.getItemById(ingredientSection.getString("oraxen_item")).build();
 
-        if (ingredientSection.isString("minecraft_type"))
-            return new ItemStack(Material.getMaterial(ingredientSection.getString("minecraft_type")));
+        if (ingredientSection.isString("minecraft_type")) {
+            Material material = Material.getMaterial(ingredientSection.getString("minecraft_type", "AIR"));
+            if (material == null || material.isAir()) return null;
+            return new ItemStack(material);
+        }
 
         return ingredientSection.getItemStack("minecraft_item");
     }
 
-    @SuppressWarnings("deprecation")
     protected RecipeChoice getRecipeChoice(ConfigurationSection ingredientSection) {
 
         if (ingredientSection.isString("oraxen_item"))
             return new RecipeChoice.ExactChoice(
-                OraxenItems.getItemById(ingredientSection.getString("oraxen_item")).build());
+                    OraxenItems.getItemById(ingredientSection.getString("oraxen_item")).build());
 
-        if (ingredientSection.isString("minecraft_type"))
-            return new RecipeChoice.MaterialChoice(Material.getMaterial(ingredientSection.getString("minecraft_type")));
+        if (ingredientSection.isString("minecraft_type")) {
+            Material material = Material.getMaterial(ingredientSection.getString("minecraft_type", "AIR"));
+            if (material == null || material.isAir()) return null;
+            return new RecipeChoice.MaterialChoice(material);
+        }
 
-        return new RecipeChoice.ExactChoice(ingredientSection.getItemStack("minecraft_item"));
+        if (ingredientSection.isString("tag")) {
+            String tagString = ingredientSection.getString("tag", "");
+            NamespacedKey tagId = tagString.contains(":") ? NamespacedKey.fromString(tagString) : NamespacedKey.minecraft(tagString);
+            tagId = tagId != null ? tagId : NamespacedKey.minecraft("oak_logs");
+            Tag<Material> tag = Bukkit.getTag(Tag.REGISTRY_BLOCKS, tagId, Material.class);
+            if (tag == null) tag = Bukkit.getTag(Tag.REGISTRY_ITEMS, tagId, Material.class);
+            if (tag == null) return null;
+            return new RecipeChoice.MaterialChoice(tag);
+        }
+
+        ItemStack itemStack = ingredientSection.getItemStack("minecraft_item");
+        if (itemStack == null) return null;
+        return new RecipeChoice.ExactChoice(itemStack);
 
     }
 

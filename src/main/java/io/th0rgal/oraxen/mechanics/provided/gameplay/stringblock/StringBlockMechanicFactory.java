@@ -28,7 +28,9 @@ public class StringBlockMechanicFactory extends MechanicFactory {
     public final List<String> toolTypes;
     private boolean sapling;
     private static SaplingTask saplingTask;
-    public final int saplingGrowthCheckDelay;
+    private final int saplingGrowthCheckDelay;
+    public final boolean customSounds;
+    public final boolean disableVanillaString;
 
     public StringBlockMechanicFactory(ConfigurationSection section) {
         super(section);
@@ -38,6 +40,9 @@ public class StringBlockMechanicFactory extends MechanicFactory {
         toolTypes = section.getStringList("tool_types");
         saplingGrowthCheckDelay = section.getInt("sapling_growth_check_delay");
         sapling = false;
+        customSounds = OraxenPlugin.get().getConfigsManager().getMechanics().getConfigurationSection("custom_block_sounds").getBoolean("stringblock_and_furniture", true);
+        disableVanillaString = section.getBoolean("disable_vanilla_string", true);
+
         // this modifier should be executed when all the items have been parsed, just
         // before zipping the pack
         OraxenPlugin.get().getResourcePack().addModifiers(getMechanicID(),
@@ -48,6 +53,7 @@ public class StringBlockMechanicFactory extends MechanicFactory {
         );
         MechanicsManager.registerListeners(OraxenPlugin.get(), new StringBlockMechanicListener(this));
         MechanicsManager.registerListeners(OraxenPlugin.get(), new SaplingListener());
+        if (customSounds) MechanicsManager.registerListeners(OraxenPlugin.get(), new StringBlockSoundListener());
     }
 
     public static JsonObject getModelJson(String modelName) {

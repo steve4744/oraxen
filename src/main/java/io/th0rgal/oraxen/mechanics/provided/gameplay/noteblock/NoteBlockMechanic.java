@@ -8,8 +8,11 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.directional.Direc
 import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.farmblock.FarmBlockDryout;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.logstrip.LogStripping;
 import io.th0rgal.oraxen.utils.actions.ClickAction;
+import io.th0rgal.oraxen.utils.blocksounds.BlockSounds;
 import io.th0rgal.oraxen.utils.drops.Drop;
 import io.th0rgal.oraxen.utils.drops.Loot;
+import io.th0rgal.oraxen.utils.limitedplacing.LimitedPlacing;
+import io.th0rgal.oraxen.utils.storage.StorageMechanic;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -17,6 +20,7 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Objects;
 
 public class NoteBlockMechanic extends Mechanic {
 
@@ -24,15 +28,14 @@ public class NoteBlockMechanic extends Mechanic {
     protected final boolean hasHardness;
     private final int customVariation;
     private final Drop drop;
-    private final String breakSound;
-    private final String placeSound;
-    private final String stepSound;
-    private final String hitSound;
-    private final String fallSound;
+    private final LimitedPlacing limitedPlacing;
+    private final StorageMechanic storage;
+    private final BlockSounds blockSounds;
     private String model;
     private int period;
     private final int light;
     private final boolean canIgnite;
+    private final boolean isFalling;
     private final FarmBlockDryout farmBlockDryout;
     private final LogStripping logStripping;
     private final DirectionalBlock directionalBlock;
@@ -49,12 +52,6 @@ public class NoteBlockMechanic extends Mechanic {
             model = section.getString("model");
 
         customVariation = section.getInt("custom_variation");
-
-        placeSound = section.getString("place_sound", null);
-        breakSound = section.getString("break_sound", null);
-        stepSound = section.getString("step_sound", null);
-        hitSound = section.getString("hit_sound", null);
-        fallSound = section.getString("fall_sound", null);
 
         List<Loot> loots = new ArrayList<>();
         if (section.isConfigurationSection("drop")) {
@@ -87,36 +84,60 @@ public class NoteBlockMechanic extends Mechanic {
         light = section.getInt("light", -1);
         clickActions = ClickAction.parseList(section);
         canIgnite = section.getBoolean("can_ignite", false);
+        isFalling = section.getBoolean("is_falling", false);
 
         if (section.isConfigurationSection("farmblock")) {
-            farmBlockDryout = new FarmBlockDryout(getItemID(), section.getConfigurationSection("farmblock"));
+            farmBlockDryout = new FarmBlockDryout(getItemID(), Objects.requireNonNull(section.getConfigurationSection("farmblock")));
             ((NoteBlockMechanicFactory) getFactory()).registerFarmBlock();
         } else farmBlockDryout = null;
 
         if (section.isConfigurationSection("logStrip")) {
-            logStripping = new LogStripping(section.getConfigurationSection("logStrip"));
+            logStripping = new LogStripping(Objects.requireNonNull(section.getConfigurationSection("logStrip")));
         } else logStripping = null;
 
         if (section.isConfigurationSection("directional")) {
-            directionalBlock = new DirectionalBlock(section.getConfigurationSection("directional"));
+            directionalBlock = new DirectionalBlock(Objects.requireNonNull(section.getConfigurationSection("directional")));
         } else directionalBlock = null;
 
+        if (section.isConfigurationSection("limited_placing")) {
+            limitedPlacing = new LimitedPlacing(Objects.requireNonNull(section.getConfigurationSection("limited_placing")));
+        } else limitedPlacing = null;
+
+        if (section.isConfigurationSection("storage")) {
+            storage = new StorageMechanic(Objects.requireNonNull(section.getConfigurationSection("storage")));
+        } else storage = null;
+
+        if (section.isConfigurationSection("block_sounds")) {
+            blockSounds = new BlockSounds(Objects.requireNonNull(section.getConfigurationSection("block_sounds")));
+        } else blockSounds = null;
     }
 
-    public boolean hasDryout() {
-        return farmBlockDryout != null;
+    public boolean hasLimitedPlacing() { return limitedPlacing != null; }
+    public LimitedPlacing getLimitedPlacing() { return limitedPlacing; }
+
+    public boolean isStorage() { return storage != null; }
+    public StorageMechanic getStorage() { return storage; }
+
+    public boolean hasBlockSounds() { return blockSounds != null; }
+    public BlockSounds getBlockSounds() { return blockSounds; }
+
+    public boolean hasDryout() { return farmBlockDryout != null; }
+    public FarmBlockDryout getDryout() { return farmBlockDryout; }
+
+    public boolean isLog() {
+        if (isDirectional() && !getDirectional().isParentBlock()) {
+            return logStripping != null || directionalBlock.getParentMechanic().isLog();
+        } else return logStripping != null;
     }
-
-    public FarmBlockDryout getDryout() {
-        return farmBlockDryout;
-    }
-
-    public boolean isLog() { return logStripping != null; }
-
     public LogStripping getLog() { return logStripping; }
 
-    public boolean isDirectional() { return directionalBlock != null; }
+    public boolean isFalling() {
+        if (isDirectional() && !directionalBlock.isParentBlock()) {
+            return isFalling || directionalBlock.getParentMechanic().isFalling();
+        } else return isFalling;
+    }
 
+    public boolean isDirectional() { return directionalBlock != null; }
     public DirectionalBlock getDirectional() { return directionalBlock; }
 
     public String getModel(ConfigurationSection section) {
@@ -134,38 +155,14 @@ public class NoteBlockMechanic extends Mechanic {
         return drop;
     }
 
-    public boolean hasBreakSound() {
-        return breakSound != null;
-    }
-    public String getBreakSound() {
-        return validateReplacedSounds(breakSound);
-    }
-
-    public boolean hasPlaceSound() {
-        return placeSound != null;
-    }
-    public String getPlaceSound() {
-        return validateReplacedSounds(placeSound);
-    }
-
-    public boolean hasStepSound() { return stepSound != null; }
-    public String getStepSound() { return validateReplacedSounds(stepSound); }
-
-    public boolean hasHitSound() { return hitSound != null; }
-    public String getHitSound() { return validateReplacedSounds(hitSound); }
-
-    public boolean hasFallSound() { return fallSound != null; }
-    public String getFallSound() { return validateReplacedSounds(fallSound); }
-    private String validateReplacedSounds(String sound) {
-        if (sound.startsWith("block.wood"))
-            return sound.replaceFirst("block.wood", "required.wood");
-        else if (sound.startsWith("block.stone"))
-            return sound.replaceFirst("block.stone", "required.stone");
-        else return sound;
-    }
-
     public int getPeriod() {
         return period;
+    }
+
+    public boolean hasLight() {
+        if (isDirectional() && !getDirectional().isParentBlock()) {
+            return light != -1 || directionalBlock.getParentMechanic().hasLight();
+        } else return light != -1;
     }
 
     public int getLight() {
@@ -173,7 +170,9 @@ public class NoteBlockMechanic extends Mechanic {
     }
 
     public boolean canIgnite() {
-        return canIgnite;
+        if (isDirectional() && !getDirectional().isParentBlock()) {
+            return canIgnite || directionalBlock.getParentMechanic().canIgnite();
+        } else return canIgnite;
     }
 
     public boolean hasClickActions() { return !clickActions.isEmpty(); }

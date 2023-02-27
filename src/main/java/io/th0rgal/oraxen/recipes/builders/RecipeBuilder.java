@@ -1,8 +1,8 @@
 package io.th0rgal.oraxen.recipes.builders;
 
 import io.th0rgal.oraxen.OraxenPlugin;
+import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.config.ResourcesManager;
-import io.th0rgal.oraxen.items.OraxenItems;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -13,7 +13,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
 public abstract class RecipeBuilder {
@@ -55,21 +54,15 @@ public abstract class RecipeBuilder {
 
     protected void setSerializedItem(ConfigurationSection section, ItemStack itemStack) {
 
-        String itemID = OraxenItems.getIdByItem(itemStack);
-
         // if our itemstack is made using oraxen and is not modified
-        if (itemID != null
-                && Objects.equals(OraxenItems.getItemById(itemID).build().getItemMeta(), itemStack.getItemMeta())) { // lgtm [java/dereferenced-value-may-be-null]
+        if (OraxenItems.exists(itemStack)) {
+            String itemID = OraxenItems.getIdByItem(itemStack);
             section.set("oraxen_item", itemID);
-            return;
         }
-
         // if our itemstack is an unmodified vanilla item
-        if (itemStack != null && itemStack.equals(new ItemStack(itemStack.getType()))) {
+        else if (itemStack != null && itemStack.equals(new ItemStack(itemStack.getType())))
             section.set("minecraft_type", itemStack.getType().toString());
-            return;
-        }
-        section.set("minecraft_item", itemStack);
+        else section.set("minecraft_item", itemStack);
     }
 
     public YamlConfiguration getConfig() {

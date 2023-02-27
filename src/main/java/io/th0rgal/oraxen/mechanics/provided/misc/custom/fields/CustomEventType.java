@@ -1,16 +1,17 @@
 package io.th0rgal.oraxen.mechanics.provided.misc.custom.fields;
 
-import io.th0rgal.oraxen.mechanics.provided.misc.custom.listeners.ClickListener;
-import io.th0rgal.oraxen.mechanics.provided.misc.custom.listeners.CustomListener;
-import io.th0rgal.oraxen.mechanics.provided.misc.custom.listeners.DropListener;
-import io.th0rgal.oraxen.mechanics.provided.misc.custom.listeners.PickupListener;
+import io.th0rgal.oraxen.mechanics.provided.misc.custom.listeners.*;
 import io.th0rgal.oraxen.utils.actions.ClickAction;
 
 public enum CustomEventType {
 
+    BREAK(BreakListener::new),
     CLICK(ClickListener::new),
+    INV_CLICK(InvClickListener::new),
     DROP(DropListener::new),
-    PICKUP(PickupListener::new);
+    PICKUP(PickupListener::new),
+    EQUIP(EquipListener::new),
+    UNEQUIP(UnequipListener::new);
 
     public final CustomListenerConstructor constructor;
 

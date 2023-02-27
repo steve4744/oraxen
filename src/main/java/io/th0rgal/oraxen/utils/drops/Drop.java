@@ -1,13 +1,15 @@
 package io.th0rgal.oraxen.utils.drops;
 
-import io.th0rgal.oraxen.items.OraxenItems;
+import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.mechanics.provided.misc.itemtype.ItemTypeMechanic;
 import io.th0rgal.oraxen.mechanics.provided.misc.itemtype.ItemTypeMechanicFactory;
 import org.bukkit.Location;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.inventory.meta.PotionMeta;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,7 +65,7 @@ public class Drop {
 
     public boolean isTypeEnough(ItemStack itemInHand) {
         if (hasMinimalType) {
-            String itemType = getItemType(itemInHand);
+            String itemType = itemInHand == null ? "" : getItemType(itemInHand);
             return !itemType.isEmpty() && hierarchy.contains(itemType)
                     && (hierarchy.indexOf(itemType) >= hierarchy.indexOf(minimalType));
         }
@@ -90,20 +92,30 @@ public class Drop {
         return (minimalType == null) ? 0 : hierarchy.indexOf(getItemType(item)) - hierarchy.indexOf(minimalType);
     }
 
-    public void spawns(Location location, ItemStack itemInHand) {
-        if (!canDrop(itemInHand))
-            return;
+    public List<Loot> getLoots() {
+        return loots;
+    }
 
-        if (silktouch && itemInHand != null && itemInHand.hasItemMeta()
-                && itemInHand.getItemMeta().hasEnchant(Enchantment.SILK_TOUCH)) {
-            location.getWorld().dropItemNaturally(location, OraxenItems.getItemById(sourceID).build());
-            return;
-        }
+    public void spawns(Location location, ItemStack itemInHand) {
+        if (!canDrop(itemInHand)) return;
+        if (!location.isWorldLoaded()) return;
 
         int fortuneMultiplier = 1;
-        if (fortune && itemInHand.getItemMeta().hasEnchant(Enchantment.LOOT_BONUS_BLOCKS))
-            fortuneMultiplier += ThreadLocalRandom.current()
-                    .nextInt(itemInHand.getItemMeta().getEnchantLevel(Enchantment.LOOT_BONUS_BLOCKS));
+        if (itemInHand != null) {
+            ItemMeta itemMeta = itemInHand.getItemMeta();
+            if (itemMeta != null) {
+                if (silktouch && itemMeta.hasEnchant(Enchantment.SILK_TOUCH)) {
+                    if (location.getWorld() != null)
+                        location.getWorld().dropItemNaturally(location, OraxenItems.getItemById(sourceID).build());
+                    return;
+                }
+
+                if (fortune && itemMeta.hasEnchant(Enchantment.LOOT_BONUS_BLOCKS))
+                    fortuneMultiplier += ThreadLocalRandom.current()
+                            .nextInt(itemMeta.getEnchantLevel(Enchantment.LOOT_BONUS_BLOCKS));
+            }
+
+        }
 
         for (Loot loot : loots) {
             loot.dropNaturally(location, fortuneMultiplier);
@@ -111,15 +123,24 @@ public class Drop {
     }
 
     public void furnitureSpawns(ItemFrame frame, ItemStack itemInHand) {
-        if (!canDrop(itemInHand))
-            return;
-
         ItemStack drop = OraxenItems.getItemById(sourceID).build();
+        ItemMeta dropMeta = drop.getItemMeta();
+        if (!canDrop(itemInHand)) return;
+        if (dropMeta == null) return;
+        if (!frame.getLocation().isWorldLoaded()) return;
+
         if (frame.getItem().getItemMeta() instanceof LeatherArmorMeta leatherArmorMeta) {
-            LeatherArmorMeta clone = (LeatherArmorMeta) drop.getItemMeta().clone();
+            LeatherArmorMeta clone = (LeatherArmorMeta) dropMeta.clone();
             clone.setColor(leatherArmorMeta.getColor());
             drop.setItemMeta(clone);
         }
+
+        if (frame.getItem().getItemMeta() instanceof PotionMeta potionMeta) {
+            PotionMeta clone = (PotionMeta) dropMeta.clone();
+            clone.setColor(potionMeta.getColor());
+            drop.setItemMeta(clone);
+        }
+
         frame.getLocation().getWorld().dropItemNaturally(frame.getLocation(), drop);
     }
 }
