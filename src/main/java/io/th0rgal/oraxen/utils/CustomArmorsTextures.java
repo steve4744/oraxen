@@ -90,8 +90,6 @@ public class CustomArmorsTextures {
         int newWidth = resolution * WIDTH_RATIO;
         int width = original.getWidth();
         int height = original.getHeight();
-        Logs.debug("origianlHeight: " + original.getHeight());
-        Logs.debug("layerHeight: " + getLayerHeight());
         if (width == newWidth && height == getLayerHeight()) return original;
 
         Image scaled = original.getScaledInstance(newWidth, height, Image.SCALE_DEFAULT);
@@ -150,6 +148,12 @@ public class CustomArmorsTextures {
             setPixel(image.getRaster(), 2, 0, Color.fromRGB(1, 0, 0));
         }
 
+        if(image.getColorModel().getPixelSize() < 32) {
+            int width = image.getWidth(), height = image.getHeight();
+            Image resizedImage = original.getScaledInstance(width, height, Image.SCALE_DEFAULT);
+            image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            image.getGraphics().drawImage(resizedImage, 0, 0, null);
+        }
         addPixel(image, builder, name, prefix, isAnimated);
 
         return true;
@@ -172,8 +176,6 @@ public class CustomArmorsTextures {
         if (name.contains("armor_layer_1")) {
             layers1.add(image);
             layer1Width += image.getWidth();
-            Logs.debug(layer1Height);
-            Logs.debug(image.getHeight());
             layer1Height = Math.max(layer1Height, image.getHeight());
         } else {
             layers2.add(image);
@@ -277,13 +279,6 @@ public class CustomArmorsTextures {
 
             if (fileName.endsWith("_a.png"))
                 optifineFiles.addAll(getOptifineAnimFiles(armorFile.getValue(), fileName, parentFolder));
-        }
-
-        try {
-            InputStream inputStream = new ByteArrayInputStream("suffix.emissive=_e".getBytes(StandardCharsets.UTF_8));
-            optifineFiles.add(new VirtualFile("assets/minecraft/optifine", "emissive.properties", inputStream));
-            inputStream.close();
-        } catch (IOException ignored) {
         }
 
         return optifineFiles;

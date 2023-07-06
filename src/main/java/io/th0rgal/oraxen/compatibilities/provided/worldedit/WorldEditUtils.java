@@ -144,7 +144,7 @@ public class WorldEditUtils {
                 editSession.close();
             } catch (WorldEditException e) {
                 OraxenPlugin.get().getLogger().warning("Could not paste schematic for sapling-mechanic");
-                e.printStackTrace();
+                if (Settings.DEBUG.toBool()) e.printStackTrace();
             }
 
         } catch (Exception e) {
@@ -163,7 +163,7 @@ public class WorldEditUtils {
                     Location offset = new Location(world, x - clipboard.getOrigin().getBlockX(), y - clipboard.getOrigin().getBlockY(), z - clipboard.getOrigin().getBlockZ());
 
                     Block block = world.getBlockAt(loc.clone().add(offset));
-                    if (BlockHelpers.REPLACEABLE_BLOCKS.contains(block.getType())) continue;
+                    if (BlockHelpers.isReplaceable(block)) continue;
                     if (BlockHelpers.toBlockLocation(loc).equals(BlockHelpers.toBlockLocation(loc))) continue;
                     list.add(block);
                 }
@@ -193,7 +193,7 @@ public class WorldEditUtils {
                     Location offset = new Location(world, x - clipboard.getOrigin().getBlockX(), y - clipboard.getOrigin().getBlockY(), z - clipboard.getOrigin().getBlockZ());
 
                     Block block = world.getBlockAt(loc.clone().add(offset));
-                    if (BlockHelpers.REPLACEABLE_BLOCKS.contains(block.getType())) continue;
+                    if (BlockHelpers.isReplaceable(block)) continue;
                     if (BlockHelpers.toBlockLocation(loc).equals(BlockHelpers.toBlockLocation(loc))) continue;
                     list.add(block);
                 }

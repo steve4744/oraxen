@@ -2,6 +2,7 @@ package io.th0rgal.oraxen.utils.drops;
 
 import io.lumine.mythiccrucible.MythicCrucible;
 import io.th0rgal.oraxen.api.OraxenItems;
+import net.Indyuce.mmoitems.MMOItems;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -47,11 +48,14 @@ public class Loot {
         } else if (config.containsKey("crucible_item")) {
             String crucibleID = config.get("crucible_item").toString();
             itemStack = MythicCrucible.core().getItemManager().getItemStack(crucibleID);
+        } else if (config.containsKey("mmoitems_id") && config.containsKey("mmoitems_type")) {
+            String type = config.get("mmoitems_type").toString();
+            String id = config.get("mmoitems_id").toString();
+            itemStack = MMOItems.plugin.getItem(type, id);
         } else if (config.containsKey("minecraft_type")) {
             String itemType = config.get("minecraft_type").toString();
             Material material = Material.getMaterial(itemType);
-            if (material == null) return null;
-            itemStack = new ItemStack(material);
+            itemStack = material != null ? new ItemStack(material) : null;
         } else itemStack = (ItemStack) config.get("minecraft_item");
         return itemStack;
     }
@@ -70,7 +74,6 @@ public class Loot {
     }
 
     private void dropItems(Location location, int amountMultiplier) {
-        if (getItemStack() == null) return;
         ItemStack stack = getItemStack().clone();
         int dropAmount = ThreadLocalRandom.current().nextInt(minAmount, maxAmount + 1);
         stack.setAmount(stack.getAmount() * amountMultiplier * dropAmount);

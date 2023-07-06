@@ -24,11 +24,12 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 public class ItemParser {
 
-    private static final Map<String, ModelData> MODEL_DATAS_BY_ID = new HashMap<>();
+    public static final Map<String, ModelData> MODEL_DATAS_BY_ID = new HashMap<>();
 
     private final OraxenMeta oraxenMeta;
     private final ConfigurationSection section;
@@ -54,17 +55,17 @@ public class ItemParser {
             oraxenMeta.setPackInfos(packSection);
             assert packSection != null;
             if (packSection.isInt("custom_model_data"))
-                MODEL_DATAS_BY_ID.put(section.getName(), new ModelData(type, oraxenMeta.getModelName(),
-                        packSection.getInt("custom_model_data")));
+                MODEL_DATAS_BY_ID.put(section.getName(),
+                        new ModelData(type, oraxenMeta.getModelName(), packSection.getInt("custom_model_data")));
         }
     }
 
     public boolean usesMMOItems() {
-        return type == null && crucibleItem == null;
+        return type == null && crucibleItem == null && mmoItem != null;
     }
 
     public boolean usesCrucibleItems() {
-        return type == null && mmoItem == null;
+        return type == null && mmoItem == null && crucibleItem != null;
     }
 
     private String parseComponentString(String miniString) {
@@ -101,7 +102,7 @@ public class ItemParser {
         if (section.contains("unstackable"))
             item.setUnstackable(section.getBoolean("unstackable", false));
         if (section.contains("color"))
-            item.setColor(Utils.toColor(section.getString("color", "FFFFFF")));
+            item.setColor(Utils.toColor(section.getString("color", "#FFFFFF")));
 
         parseMiscOptions(item);
         parseVanillaSections(item);
@@ -114,6 +115,7 @@ public class ItemParser {
         oraxenMeta.setNoUpdate(section.getBoolean("no_auto_update", false));
         oraxenMeta.setDisableEnchanting(section.getBoolean("disable_enchanting", false));
         oraxenMeta.setExcludedFromInventory(section.getBoolean("excludeFromInventory", false));
+        oraxenMeta.setExcludedFromCommands(section.getBoolean("excludeFromCommands", false));
 
         if (!section.contains("injectID") || section.getBoolean("injectId"))
             item.setCustomTag(new NamespacedKey(OraxenPlugin.get(), "id"), PersistentDataType.STRING, section.getName());
@@ -164,9 +166,10 @@ public class ItemParser {
 
         if (section.contains("AttributeModifiers")) {
             @SuppressWarnings("unchecked") // because this sections must always return a List<LinkedHashMap<String, ?>>
-            List<LinkedHashMap<String, Object>> attributes = (List<LinkedHashMap<String, Object>>) section
-                    .getList("AttributeModifiers");
+            List<LinkedHashMap<String, Object>> attributes = (List<LinkedHashMap<String, Object>>) section.getList("AttributeModifiers");
             for (LinkedHashMap<String, Object> attributeJson : attributes) {
+                attributeJson.putIfAbsent("uuid", UUID.randomUUID().toString());
+                attributeJson.putIfAbsent("name", "oraxen:modifier");
                 AttributeModifier attributeModifier = AttributeModifier.deserialize(attributeJson);
                 Attribute attribute = Attribute.valueOf((String) attributeJson.get("attribute"));
                 item.addAttributeModifiers(attribute, attributeModifier);
@@ -183,29 +186,26 @@ public class ItemParser {
 
     private void parseOraxenSections(ItemBuilder item) {
 
-        if (section.isConfigurationSection("Mechanics")) {
-            ConfigurationSection mechanicsSection = section.getConfigurationSection("Mechanics");
-            if (mechanicsSection != null) for (String mechanicID : mechanicsSection.getKeys(false)) {
-                MechanicFactory factory = MechanicsManager.getMechanicFactory(mechanicID);
-                if (factory != null) {
-                    Mechanic mechanic = factory.parse(mechanicsSection.getConfigurationSection(mechanicID));
-                    // Apply item modifiers
-                    for (Function<ItemBuilder, ItemBuilder> itemModifier : mechanic.getItemModifiers())
-                        item = itemModifier.apply(item);
-                }
+        ConfigurationSection mechanicsSection = section.getConfigurationSection("Mechanics");
+        if (mechanicsSection != null) for (String mechanicID : mechanicsSection.getKeys(false)) {
+            MechanicFactory factory = MechanicsManager.getMechanicFactory(mechanicID);
+            if (factory != null) {
+                Mechanic mechanic = factory.parse(mechanicsSection.getConfigurationSection(mechanicID));
+                // Apply item modifiers
+                for (Function<ItemBuilder, ItemBuilder> itemModifier : mechanic.getItemModifiers())
+                    item = itemModifier.apply(item);
             }
         }
 
         if (oraxenMeta.hasPackInfos()) {
             int customModelData;
-            if (MODEL_DATAS_BY_ID.containsKey(section.getName()))
-                customModelData = MODEL_DATAS_BY_ID.get(section.getName()).getDurability();
-            else {
+            if (MODEL_DATAS_BY_ID.containsKey(section.getName())) {
+                customModelData = MODEL_DATAS_BY_ID.get(section.getName()).getModelData();
+            } else {
                 customModelData = ModelData.generateId(oraxenMeta.getModelName(), type);
-                if (Settings.AUTOMATICALLY_SET_MODEL_DATA.toBool()) {
-                    configUpdated = true;
+                configUpdated = true;
+                if (!Settings.DISABLE_AUTOMATIC_MODEL_DATA.toBool())
                     section.getConfigurationSection("Pack").set("custom_model_data", customModelData);
-                }
             }
             item.setCustomModelData(customModelData);
             oraxenMeta.setCustomModelData(customModelData);
