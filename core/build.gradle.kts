@@ -18,52 +18,6 @@ dependencies {
     //paperweight.paperDevBundle("1.20.4-R0.1-SNAPSHOT")
 }
 
-publishing {
-    val publishData = PublishData(project)
-    publications {
-        create<MavenPublication>("maven") {
-            groupId = rootProject.group.toString()
-            artifactId = rootProject.name
-            version = publishData.getVersion()
-
-            from(components["java"])
-            //artifact(tasks.shadowJar.get().apply { archiveClassifier.set("") })
-        }
-    }
-
-    repositories {
-        maven {
-            authentication {
-                credentials(PasswordCredentials::class) {
-                    username = System.getenv("MAVEN_USERNAME") ?: project.findProperty("oraxenUsername") as? String ?: ""
-                    password = System.getenv("MAVEN_PASSWORD") ?: project.findProperty("oraxenPassword") as? String ?: ""
-                }
-                authentication {
-                    create<BasicAuthentication>("basic")
-                }
-            }
-
-            url = uri(publishData.getRepository())
-            name = "oraxen"
-        }
-    }
-}
-
-
-class PublishData(private val project: Project) {
-    private var type: Type = getReleaseType()
-    private var hashLength: Int = 7
-
-    private fun getReleaseType(): Type {
-        val branch = getCheckedOutBranch()
-        println("Branch: $branch")
-        return when {
-            branch.contentEquals("master") -> Type.RELEASE
-            branch.contentEquals("develop") -> Type.SNAPSHOT
-            else -> Type.DEV
-        }
-    }
-
     private fun getCheckedOutGitCommitHash(): String =
         System.getenv("GITHUB_SHA")?.substring(0, hashLength) ?: "local"
 
